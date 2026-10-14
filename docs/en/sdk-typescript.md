@@ -36,7 +36,7 @@ If the process stops after claim, or the execution deadline passes, the task bec
 
 ## Wrapping a tool
 
-`ledger.guard` runs request, wait, claim, and complete around a function. Use it when you own the tool implementation. That is recorded integration: the model can still call a different tool that reaches the same system. For tools you can put behind a process boundary, use the [MCP proxy](mcp-proxy.md).
+`ledger.guard` runs request, wait, claim, and complete around a function. Use it when you own the tool implementation. That is recorded integration: the model can still call a different tool that reaches the same system. For tools you can put behind a process boundary, use the [MCP proxy](mcp-proxy.md). To gate tools you do not own, or to hand a pending task back to your framework, use the [tool gate](tool-gate.md).
 
 ## Approval is outside the agent
 

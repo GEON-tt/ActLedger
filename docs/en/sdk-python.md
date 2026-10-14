@@ -61,6 +61,10 @@ The rpc command is chosen in this order: an explicit `command=[...]`, then `ACTL
 
 A second claim raises `LedgerError` with `code == "already_claimed"`.
 
+## Tool gate
+
+`actledger.gate.ToolGate` is the framework-neutral hook: `before` before the tool runs, `after` when it returns. `async_before`, `async_after`, and `async_resume` run the sync methods on a worker thread via `asyncio.to_thread`. See [tool gate](tool-gate.md).
+
 ## LangGraph
 
 `actledger.langgraph.ledger_gate` wraps a node. On `pending_approval` it interrupts with `actledger_task_id`, `action`, `payload_hash`, and the approve command. It does not put a preview of the payload on the interrupt. After resume, the adapter reads the task from the ledger again, then executes. See `python/examples/langgraph_email.py`.

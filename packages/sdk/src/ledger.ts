@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import path from "node:path";
 import {
   compareWithDrift,
   initLocalDir,
@@ -14,50 +15,18 @@ import {
   type State,
   type TaskView,
 } from "@actledger/core";
+import {
+  ApprovalExpired,
+  ApprovalRejected,
+  ApprovalRevoked,
+  ContentMismatch,
+  LedgerUnavailable,
+} from "./errors.js";
+import { createToolGate } from "./gate.js";
 
 export { LedgerError };
 export { verifyWebhook, type WebhookEvent } from "./webhook.js";
-
-export class ApprovalRejected extends Error {
-  readonly task: TaskHandle;
-  constructor(task: TaskHandle) {
-    super(`task ${task.id} was rejected`);
-    this.name = "ApprovalRejected";
-    this.task = task;
-  }
-}
-
-export class ApprovalExpired extends Error {
-  readonly task: TaskHandle | null;
-  constructor(task: TaskHandle | null, message = `task ${task?.id ?? ""} expired`) {
-    super(message);
-    this.name = "ApprovalExpired";
-    this.task = task;
-  }
-}
-
-export class ApprovalRevoked extends Error {
-  readonly task: TaskHandle;
-  constructor(task: TaskHandle) {
-    super(`task ${task.id} was revoked`);
-    this.name = "ApprovalRevoked";
-    this.task = task;
-  }
-}
-
-export class ContentMismatch extends Error {
-  constructor(message = "executed payload does not match the approved payload") {
-    super(message);
-    this.name = "ContentMismatch";
-  }
-}
-
-export class LedgerUnavailable extends Error {
-  constructor(message = "ledger unavailable") {
-    super(message);
-    this.name = "LedgerUnavailable";
-  }
-}
+export { ApprovalExpired, ApprovalRejected, ApprovalRevoked, ContentMismatch, LedgerUnavailable };
 
 export function isTerminal(state: string): boolean {
   return coreIsTerminal(state as State);
@@ -354,6 +323,7 @@ export class TaskHandle {
 export class Ledger {
   readonly strictContent: boolean;
   readonly onUnavailable: "deny" | "allow_read_only";
+  readonly dir: string | null;
   private readonly transport: Transport;
 
   constructor(opts: LedgerOptions) {
@@ -361,7 +331,9 @@ export class Ledger {
     this.onUnavailable = opts.onUnavailable ?? "deny";
     if (opts.transport) {
       this.transport = opts.transport;
+      this.dir = null;
     } else if (opts.mode === "local") {
+      this.dir = path.resolve(opts.dir ?? ".actledger");
       try {
         this.transport = new LocalTransport(
           openLedger({ dir: opts.dir ?? ".actledger", now: opts.now, coverageOverlay: opts.coverageOverlay }),
@@ -422,33 +394,36 @@ export class Ledger {
   }
 
   guard<A, R>(spec: GuardSpec<A>, fn: (args: A, ctx: GuardContext) => Promise<R> | R) {
+    const gate = createToolGate<A>({
+      ledger: this,
+      mode: "wait",
+      agentId: spec.agentId,
+      timeoutMs: spec.timeoutMs,
+      pollMs: 20,
+      principal: (_tool, args) => spec.principal(args),
+      map: (_tool, args) => ({
+        action: typeof spec.action === "string" ? { type: spec.action } : spec.action(args),
+        payload: spec.payload(args),
+        intent: spec.intent?.(args),
+        idempotencyKey: spec.idempotencyKey?.(args),
+        readOnly: spec.readOnly?.(args) ?? false,
+      }),
+    });
+    const toolName = typeof spec.action === "string" ? spec.action : "guard";
     return async (args: A): Promise<R> => {
-      const action = typeof spec.action === "string" ? { type: spec.action } : spec.action(args);
-      const payload = spec.payload(args);
-      if (payload.action !== action.type) payload.action = action.type;
-      let task: TaskHandle;
-      try {
-        task = await this.request({
-          principalId: spec.principal(args),
-          agentId: spec.agentId,
-          intent: spec.intent?.(args),
-          action,
-          payload,
-          idempotencyKey: spec.idempotencyKey?.(args),
-          readOnly: spec.readOnly?.(args) ?? false,
-        });
-      } catch (error) {
-        if (error instanceof LedgerUnavailable) throw error;
-        throw error;
+      const decision = await gate.before(toolName, args);
+      if (decision.kind === "deny") throw decision.cause;
+      if (decision.kind === "pending") {
+        throw new LedgerError(
+          "invalid_transition",
+          `task ${decision.taskId} is pending_approval, not approved`,
+          409,
+        );
       }
-      if (task.degraded) {
-        return fn(args, { approvedPayload: payload, taskId: null, degraded: true });
+      if (decision.degraded || !decision.run) {
+        return fn(args, { approvedPayload: decision.approvedPayload, taskId: null, degraded: true });
       }
-      const done = await task.wait({ timeoutMs: spec.timeoutMs, pollMs: 20 });
-      if (done.state !== "approved") {
-        throw new LedgerError("invalid_transition", `task ${done.id} is ${done.state}, not approved`, 409);
-      }
-      const run = await done.claim();
+      const run = decision.run;
       const executed = spec.executedPayload?.(args, run.approvedPayload) ?? run.approvedPayload;
       if (this.strictContent && !compareWithDrift(run.approvedPayload, executed).match) {
         await run.fail({
@@ -464,7 +439,7 @@ export class Ledger {
         taskId: run.taskId,
         degraded: false,
       });
-      await run.complete({ executedPayload: executed });
+      await gate.after(run, { result, executedPayload: executed });
       return result;
     };
   }

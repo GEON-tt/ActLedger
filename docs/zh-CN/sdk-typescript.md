@@ -36,7 +36,7 @@ ledger.close();
 
 ## 包住一个工具
 
-`ledger.guard` 在函数外面跑 request、wait、claim、complete。工具实现在你手里时用它。这是记录式接入：模型仍然可以调用另一个能到达同一系统的工具。能放到进程边界外面的工具，用 [MCP 代理](mcp-proxy.md)。
+`ledger.guard` 在函数外面跑 request、wait、claim、complete。工具实现在你手里时用它。这是记录式接入：模型仍然可以调用另一个能到达同一系统的工具。能放到进程边界外面的工具，用 [MCP 代理](mcp-proxy.md)。要给不是自己实现的工具加闸门，或把未批准的任务交还给框架，用[工具闸门](tool-gate.md)。
 
 ## 批准发生在 agent 外面
 

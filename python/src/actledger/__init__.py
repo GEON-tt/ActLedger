@@ -7,6 +7,16 @@ from .errors import (
     LedgerError,
     LedgerUnavailable,
 )
+from .gate import (
+    ToolGate,
+    ToolGateAllow,
+    ToolGateDecision,
+    ToolGateDeny,
+    ToolGatePending,
+    ToolMapping,
+    approve_hint,
+    default_tool_mapping,
+)
 from .ledger import GuardContext, Ledger, Run, TaskHandle
 from .verify import verify_jsonl
 
@@ -21,7 +31,15 @@ __all__ = [
     "LedgerUnavailable",
     "Run",
     "TaskHandle",
+    "ToolGate",
+    "ToolGateAllow",
+    "ToolGateDecision",
+    "ToolGateDeny",
+    "ToolGatePending",
+    "ToolMapping",
+    "approve_hint",
     "commit",
+    "default_tool_mapping",
     "jcs",
     "verify_jsonl",
 ]

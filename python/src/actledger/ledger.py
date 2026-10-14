@@ -16,6 +16,7 @@ from .errors import (
     LedgerError,
     LedgerUnavailable,
 )
+from .gate import ToolGate, ToolMapping
 from .payload import compare_with_drift
 
 
@@ -230,6 +231,23 @@ class Ledger:
         timeout: float | None = None,
         idempotency_key=None,
     ):
+        gate = ToolGate(
+            self,
+            mode="wait",
+            agent_id=agent_id,
+            timeout=timeout or 900,
+            poll_interval=0.02,
+            principal=lambda _tool, kw: principal(kw),
+            map=lambda _tool, kw: ToolMapping(
+                action=action(kw) if callable(action) else {"type": action},
+                payload=payload(kw),
+                intent=intent(kw) if intent is not None else None,
+                idempotency_key=idempotency_key(kw) if idempotency_key is not None else None,
+                read_only=read_only(kw) if read_only is not None else False,
+            ),
+        )
+        tool_name = action if isinstance(action, str) else "guard"
+
         def decorator(fn):
             signature = inspect.signature(fn)
             parameter = signature.parameters.get("ctx")
@@ -239,29 +257,24 @@ class Ledger:
             )
 
             def wrapper(**kw):
-                resolved = action(kw) if callable(action) else {"type": action}
-                body = payload(kw)
-                if isinstance(body, dict) and body.get("action") != resolved.get("type"):
-                    body["action"] = resolved["type"]
-                task = self.request(
-                    principal_id=principal(kw),
-                    action=resolved,
-                    payload=body,
-                    intent=intent(kw) if intent is not None else None,
-                    agent_id=agent_id,
-                    idempotency_key=idempotency_key(kw) if idempotency_key is not None else None,
-                    read_only=read_only(kw) if read_only is not None else False,
+                decision = gate.before(tool_name, kw)
+                if decision.kind == "deny":
+                    raise decision.cause
+                if decision.kind == "pending":
+                    raise LedgerError(
+                        "invalid_transition",
+                        f"task {decision.task_id} is pending_approval, not approved",
+                        409,
+                    )
+                if decision.degraded or decision.run is None:
+                    ctx = GuardContext(decision.approved_payload, None, True)
+                    return fn(**kw, ctx=ctx) if accepts_ctx else fn(**kw)
+                run = decision.run
+                executed = (
+                    executed_payload(kw, run.approved_payload)
+                    if executed_payload is not None
+                    else run.approved_payload
                 )
-                if task.degraded:
-                    ctx = GuardContext(body, None, True)
-                    if accepts_ctx:
-                        return fn(**kw, ctx=ctx)
-                    return fn(**kw)
-                done = task.wait(timeout=timeout or 900, poll_interval=0.02)
-                if done.state != "approved":
-                    raise LedgerError("invalid_transition", f"task {done.id} is {done.state}, not approved", 409)
-                run = done.claim()
-                executed = executed_payload(kw, run.approved_payload) if executed_payload is not None else run.approved_payload
                 if self.strict_content and not compare_with_drift(run.approved_payload, executed).match:
                     run.fail(
                         error={
@@ -272,7 +285,7 @@ class Ledger:
                     raise ContentMismatch()
                 ctx = GuardContext(run.approved_payload, run.task_id, False)
                 result = fn(**kw, ctx=ctx) if accepts_ctx else fn(**kw)
-                run.complete(executed_payload=executed)
+                gate.after(run, result=result, executed_payload=executed)
                 return result
 
             return wrapper

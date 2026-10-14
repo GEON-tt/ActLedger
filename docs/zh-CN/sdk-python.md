@@ -61,6 +61,10 @@ rpc 命令按这个顺序选择：显式的 `command=[...]`，然后是 `ACTLEDG
 
 第二次 claim 抛出 `LedgerError`，`code == "already_claimed"`。
 
+## 工具闸门
+
+`actledger.gate.ToolGate` 是与框架无关的挂点：工具执行前调 `before`，返回后调 `after`。`async_before`、`async_after`、`async_resume` 用 `asyncio.to_thread` 把同步方法放到工作线程。见[工具闸门](tool-gate.md)。
+
 ## LangGraph
 
 `actledger.langgraph.ledger_gate` 包住一个节点。遇到 `pending_approval` 时，interrupt 里带 `actledger_task_id`、`action`、`payload_hash` 和批准命令。interrupt 上不放载荷预览。恢复之后，适配器再从账本读一次任务，然后执行。见 `python/examples/langgraph_email.py`。

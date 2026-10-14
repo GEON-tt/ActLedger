@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **Tool gate**
+
+  TypeScript `createToolGate` and Python `actledger.gate.ToolGate` split a tool call into `before` and `after`. `ledger.guard` and `@ledger.guard` now run on a wait-mode tool gate. Their behavior is unchanged.
+
 - **Receipt format 0.2**
 
   Receipts are written as `actledger.receipt/0.2`. Intent text, error messages, and notes are HMAC commitments, and payload hashes are salted per task. `verify` still accepts `actledger.receipt/0.1` and can check a secrets file with `--secrets`. A `step_up` field on an `allow`, `deny`, or `draft_only` rule is rejected when the policy loads. `defaults.approval.step_up` is inherited by `require_approval` rules.

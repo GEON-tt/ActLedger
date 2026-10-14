@@ -67,6 +67,8 @@ pnpm actledger verify receipts.jsonl --keys .actledger/keys.json
 
 哈希链证明的是「记下来的内容没有被改过」，不是「所有动作都记下来了」。
 
+没有专门适配器的框架可以用工具闸门：工具调用前调 `before`，返回后调 `after`。它是 recorded 接入，强制路径仍然是 MCP 代理。详见 [docs/zh-CN/tool-gate.md](docs/zh-CN/tool-gate.md)。
+
 ## TypeScript SDK
 
 在本仓库里，SDK 通过 workspace 解析。发布之后用 `npm install @actledger/sdk`。
@@ -156,7 +158,7 @@ python/.venv/bin/pytest python -q
 
 见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、[SECURITY.zh-CN.md](SECURITY.zh-CN.md)、[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
 
-指南：[入门](docs/zh-CN/getting-started.md)、[MCP 代理](docs/zh-CN/mcp-proxy.md)、[TypeScript SDK](docs/zh-CN/sdk-typescript.md)、[Python SDK](docs/zh-CN/sdk-python.md)、[保证边界](docs/zh-CN/guarantees.md)、[架构](docs/zh-CN/architecture.md)。
+指南：[入门](docs/zh-CN/getting-started.md)、[MCP 代理](docs/zh-CN/mcp-proxy.md)、[TypeScript SDK](docs/zh-CN/sdk-typescript.md)、[Python SDK](docs/zh-CN/sdk-python.md)、[工具闸门](docs/zh-CN/tool-gate.md)、[保证边界](docs/zh-CN/guarantees.md)、[架构](docs/zh-CN/architecture.md)。
 
 ## 社区插件
 

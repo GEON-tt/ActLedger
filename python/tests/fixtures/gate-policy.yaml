@@ -1,0 +1,27 @@
+version: 1
+defaults:
+  unknown_action: require_approval
+  content_mode: strict
+  approval:
+    channels: [cli]
+    timeout: 15m
+    allow_edit: true
+    min_assurance: app_asserted
+actions:
+  tool.search: { level: read }
+  tool.send_email: { level: send }
+  tool.drop_table: { level: delete }
+  tool.draft_post: { level: draft }
+rules:
+  - id: search-allow
+    match: { action: tool.search }
+    effect: allow
+  - id: drop-deny
+    match: { action: tool.drop_table }
+    effect: deny
+  - id: draft-only
+    match: { action: tool.draft_post }
+    effect: draft_only
+  - id: send-approve
+    match: { action: tool.send_email }
+    effect: require_approval

@@ -67,6 +67,8 @@ Actions that are not integrated are outside the guarantee. Integrated actions ha
 
 The hash chain shows that recorded receipts were not altered. It does not show that every action was recorded.
 
+Frameworks without an adapter can use the tool gate: call `before` ahead of a tool call and `after` when it returns. It is recorded integration; the MCP proxy stays the enforced path. See [docs/en/tool-gate.md](docs/en/tool-gate.md).
+
 ## TypeScript SDK
 
 From this repository the SDK resolves through the workspace. After publication, `npm install @actledger/sdk`.
@@ -156,7 +158,7 @@ python/.venv/bin/pytest python -q
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
-Guides: [getting started](docs/en/getting-started.md), [MCP proxy](docs/en/mcp-proxy.md), [TypeScript SDK](docs/en/sdk-typescript.md), [Python SDK](docs/en/sdk-python.md), [guarantees](docs/en/guarantees.md), [architecture](docs/en/architecture.md).
+Guides: [getting started](docs/en/getting-started.md), [MCP proxy](docs/en/mcp-proxy.md), [TypeScript SDK](docs/en/sdk-typescript.md), [Python SDK](docs/en/sdk-python.md), [tool gate](docs/en/tool-gate.md), [guarantees](docs/en/guarantees.md), [architecture](docs/en/architecture.md).
 
 ## Community plugins
 

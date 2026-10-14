@@ -22,3 +22,18 @@ export {
   type CoverageEntry,
 } from "./ledger.js";
 export { verifyWebhook, type WebhookEvent } from "./webhook.js";
+export {
+  createToolGate,
+  defaultToolMapping,
+  approveHint,
+  type ToolGate,
+  type ToolGateOptions,
+  type ToolGateMode,
+  type ToolGateMapping,
+  type ToolGateDecision,
+  type ToolGateAllow,
+  type ToolGateDeny,
+  type ToolGatePending,
+  type ToolGateDenyReason,
+  type ToolGateOutcome,
+} from "./gate.js";
