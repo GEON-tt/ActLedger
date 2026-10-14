@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "actledger"
 version = "0.1.0"
-description = "ActLedger Python SDK: receipt verifier, local ledger client, LangGraph adapter"
+description = "ActLedger Python SDK: receipt verifier, local ledger client, LangGraph and Claude Agent SDK adapters"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -30,8 +30,9 @@ Issues = "https://github.com/GEON-tt/ActLedger/issues"
 
 [project.optional-dependencies]
 langgraph = ["langgraph>=1.0,<2"]
+claude = ["claude-agent-sdk>=0.2.166,<0.3"]
 test = ["pytest>=8"]
-dev = ["actledger[test,langgraph]"]
+dev = ["actledger[test,langgraph,claude]"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/actledger"]
@@ -48,4 +49,6 @@ addopts = "-ra"
 markers = [
   "node: needs node and the repo's node_modules/tsx (skipped locally if missing, required in CI)",
   "langgraph: needs the langgraph extra",
+  "claude: needs the claude extra (claude-agent-sdk)",
+  "anthropic_api: needs ANTHROPIC_API_KEY and a real model; skipped otherwise",
 ]

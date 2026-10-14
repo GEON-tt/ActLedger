@@ -22,6 +22,7 @@ export default defineConfig({
       { find: /^@actledger\/sdk$/, replacement: src("./packages/sdk/src/index.ts") },
       { find: /^@actledger\/sdk\/webhook$/, replacement: src("./packages/sdk/src/webhook.ts") },
       { find: /^@actledger\/mcp-proxy$/, replacement: src("./packages/mcp-proxy/src/index.ts") },
+      { find: /^@actledger\/claude-agent-sdk$/, replacement: src("./packages/claude-agent-sdk/src/index.ts") },
     ],
   },
   test: {

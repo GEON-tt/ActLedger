@@ -8,7 +8,8 @@
       "@actledger/core": ["./packages/core/src/index.ts"],
       "@actledger/sdk": ["./packages/sdk/src/index.ts"],
       "@actledger/sdk/webhook": ["./packages/sdk/src/webhook.ts"],
-      "@actledger/mcp-proxy": ["./packages/mcp-proxy/src/index.ts"]
+      "@actledger/mcp-proxy": ["./packages/mcp-proxy/src/index.ts"],
+      "@actledger/claude-agent-sdk": ["./packages/claude-agent-sdk/src/index.ts"]
     }
   },
   "include": [

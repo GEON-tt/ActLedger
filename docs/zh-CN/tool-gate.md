@@ -101,6 +101,8 @@ with Ledger(dir=".actledger") as ledger:
         gate.after(decision.run, result={"hits": 1})
 ```
 
+Claude Agent SDK 的挂载方式见[框架集成](integrations.md)。
+
 ## 只记录，不强制
 
 ToolGate 跑在 agent 进程里，是 recorded 接入。审批和回执覆盖经过它的调用。模型仍可能用 shell、通用 HTTP 客户端或浏览器绕过。强制路径是 [MCP 代理](mcp-proxy.md)。见[保证边界](guarantees.md)。

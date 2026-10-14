@@ -58,7 +58,7 @@ jobs:
           - python: "3.10"
             extras: "test"
           - python: "3.12"
-            extras: "test,langgraph"
+            extras: "test,langgraph,claude"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -83,6 +83,7 @@ jobs:
         env:
           ACTLEDGER_REQUIRE_NODE: "1"
           ACTLEDGER_REQUIRE_LANGGRAPH: ${{ contains(matrix.extras, 'langgraph') && '1' || '0' }}
+          ACTLEDGER_REQUIRE_CLAUDE: ${{ contains(matrix.extras, 'claude') && '1' || '0' }}
           NODE_OPTIONS: --disable-warning=ExperimentalWarning
         run: ../.venv/bin/python -m pytest -q
       - name: Python CLI verify vectors

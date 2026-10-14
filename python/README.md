@@ -19,6 +19,12 @@ With the LangGraph adapter:
 .venv/bin/python -m pip install -e "./python[test,langgraph]"
 ```
 
+With the Claude Agent SDK adapter:
+
+```bash
+.venv/bin/python -m pip install -e "./python[test,claude]"
+```
+
 Python `>=3.10`. Use the stdlib `venv` and `pip`. This package is not uploaded to PyPI yet.
 
 ## Verify
@@ -65,7 +71,7 @@ From the repository root, run `pnpm install` first (parity checks and rpc need t
 
 ```bash
 python3 -m venv python/.venv
-python/.venv/bin/python -m pip install -e "./python[test,langgraph]"
+python/.venv/bin/python -m pip install -e "./python[test,langgraph,claude]"
 python/.venv/bin/python -m pytest python/tests
 ```
 
@@ -75,13 +81,13 @@ Vector checks that do not need Node:
 python/.venv/bin/python -m pytest python/tests/test_vectors.py
 ```
 
-If `langgraph` is not installed, tests marked `langgraph` are skipped and the core package still imports. CI sets `ACTLEDGER_REQUIRE_NODE=1`. The job that installs langgraph also sets `ACTLEDGER_REQUIRE_LANGGRAPH=1`.
+If `langgraph` is not installed, tests marked `langgraph` are skipped and the core package still imports. CI sets `ACTLEDGER_REQUIRE_NODE=1`. The job that installs langgraph also sets `ACTLEDGER_REQUIRE_LANGGRAPH=1`. Tests marked `claude` are skipped unless `claude-agent-sdk` is installed. The job that installs the Claude extra sets `ACTLEDGER_REQUIRE_CLAUDE=1`. Smoke tests that call a real model also need `ANTHROPIC_API_KEY` and are skipped when it is absent.
 
 Longer guide: <https://github.com/GEON-tt/ActLedger/blob/main/docs/en/sdk-python.md>.
 
 ## 简体中文
 
-回执校验器、本地账本客户端，以及可选的 LangGraph 适配器。入口是 `python -m actledger`，不是和 npm 包同名的 console script。
+回执校验器、本地账本客户端，以及可选的 LangGraph 和 Claude Agent SDK 适配器。入口是 `python -m actledger`，不是和 npm 包同名的 console script。Claude 适配器需要 `pip install -e "./python[claude]"`。没装这个 extra 时，标了 `claude` 的测试会跳过；CI 里安装了 Claude extra 的任务会设置 `ACTLEDGER_REQUIRE_CLAUDE=1`。
 
 在仓库根：
 

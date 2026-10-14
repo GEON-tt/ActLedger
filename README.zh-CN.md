@@ -54,7 +54,8 @@ pnpm actledger verify receipts.jsonl --keys .actledger/keys.json
 | [`@actledger/sdk`](packages/sdk) | TypeScript `Ledger`：request、wait、claim、complete |
 | [`@actledger/cli`](packages/cli) | `actledger`：初始化、批准、导出、校验 |
 | [`@actledger/mcp-proxy`](packages/mcp-proxy) | 放在上游服务器前面的 stdio MCP 代理 |
-| [`actledger`](python)（Python） | 回执校验器、经 `actledger rpc` 访问本地账本的客户端、可选的 LangGraph 适配器 |
+| [`@actledger/claude-agent-sdk`](packages/claude-agent-sdk) | Claude Agent SDK 适配器：在工具闸门上挂 `canUseTool` 和 `PostToolUse` 钩子 |
+| [`actledger`](python)（Python） | 回执校验器、经 `actledger rpc` 访问本地账本的客户端、可选的 LangGraph 和 Claude Agent SDK 适配器 |
 
 协议字段见 [spec/zh-CN/README.md](spec/zh-CN/README.md)。架构概要见 [docs/zh-CN/architecture.md](docs/zh-CN/architecture.md)。
 
@@ -160,7 +161,7 @@ python/.venv/bin/pytest python -q
 
 见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、[SECURITY.zh-CN.md](SECURITY.zh-CN.md)、[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
 
-指南：[入门](docs/zh-CN/getting-started.md)、[MCP 代理](docs/zh-CN/mcp-proxy.md)、[TypeScript SDK](docs/zh-CN/sdk-typescript.md)、[Python SDK](docs/zh-CN/sdk-python.md)、[工具闸门](docs/zh-CN/tool-gate.md)、[审批](docs/zh-CN/approval.md)、[保证边界](docs/zh-CN/guarantees.md)、[架构](docs/zh-CN/architecture.md)。
+指南：[入门](docs/zh-CN/getting-started.md)、[MCP 代理](docs/zh-CN/mcp-proxy.md)、[TypeScript SDK](docs/zh-CN/sdk-typescript.md)、[Python SDK](docs/zh-CN/sdk-python.md)、[工具闸门](docs/zh-CN/tool-gate.md)、[框架集成](docs/zh-CN/integrations.md)、[审批](docs/zh-CN/approval.md)、[保证边界](docs/zh-CN/guarantees.md)、[架构](docs/zh-CN/architecture.md)。
 
 ## 社区插件
 

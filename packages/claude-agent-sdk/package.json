@@ -1,0 +1,41 @@
+{
+  "name": "@actledger/claude-agent-sdk",
+  "version": "0.1.0",
+  "description": "ActLedger adapter for the Claude Agent SDK: canUseTool and PostToolUse hooks backed by a ToolGate",
+  "license": "Apache-2.0",
+  "author": "ActLedger contributors",
+  "keywords": ["actledger", "claude", "claude-agent-sdk", "agent", "approval", "ledger"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GEON-tt/ActLedger.git",
+    "directory": "packages/claude-agent-sdk"
+  },
+  "bugs": { "url": "https://github.com/GEON-tt/ActLedger/issues" },
+  "homepage": "https://github.com/GEON-tt/ActLedger/tree/main/packages/claude-agent-sdk#readme",
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "publishConfig": { "access": "public" },
+  "dependencies": {
+    "@actledger/sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.142"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.299",
+    "@anthropic-ai/sdk": "^0.133.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.0.0"
+  }
+}

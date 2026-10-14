@@ -54,7 +54,8 @@ Point an MCP client at this checkout. `--ledger` must be an absolute path:
 | [`@actledger/sdk`](packages/sdk) | TypeScript `Ledger`: request, wait, claim, complete |
 | [`@actledger/cli`](packages/cli) | `actledger` for init, approve, export, and verify |
 | [`@actledger/mcp-proxy`](packages/mcp-proxy) | Stdio MCP proxy in front of an upstream server |
-| [`actledger`](python) (Python) | Receipt verifier, local ledger client over `actledger rpc`, optional LangGraph adapter |
+| [`@actledger/claude-agent-sdk`](packages/claude-agent-sdk) | Claude Agent SDK adapter: `canUseTool` and `PostToolUse` hooks on a ToolGate |
+| [`actledger`](python) (Python) | Receipt verifier, local ledger client over `actledger rpc`, optional LangGraph and Claude Agent SDK adapters |
 
 Normative field rules are in [spec/README.md](spec/README.md). A short architecture note is in [docs/en/architecture.md](docs/en/architecture.md).
 
@@ -160,7 +161,7 @@ python/.venv/bin/pytest python -q
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
-Guides: [getting started](docs/en/getting-started.md), [MCP proxy](docs/en/mcp-proxy.md), [TypeScript SDK](docs/en/sdk-typescript.md), [Python SDK](docs/en/sdk-python.md), [tool gate](docs/en/tool-gate.md), [approval](docs/en/approval.md), [guarantees](docs/en/guarantees.md), [architecture](docs/en/architecture.md).
+Guides: [getting started](docs/en/getting-started.md), [MCP proxy](docs/en/mcp-proxy.md), [TypeScript SDK](docs/en/sdk-typescript.md), [Python SDK](docs/en/sdk-python.md), [tool gate](docs/en/tool-gate.md), [integrations](docs/en/integrations.md), [approval](docs/en/approval.md), [guarantees](docs/en/guarantees.md), [architecture](docs/en/architecture.md).
 
 ## Community plugins
 

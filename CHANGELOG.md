@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **Claude Agent SDK adapter**
+
+  `@actledger/claude-agent-sdk` and `actledger.claude_agent` (extra `actledger[claude]`) mount a wait-mode tool gate on the Claude Agent SDK. `canUseTool` asks the ledger and returns allow with the approved input, or deny with the task id and reason. `PostToolUse` completes the task and `PostToolUseFailure` fails it. This is recorded integration: tools that the SDK auto-allows never reach `canUseTool`.
+
 - **Local approval page and webhook channel**
 
   `actledger serve` runs an approval page on 127.0.0.1 with a one-time login link, and posts signed webhooks configured in `.actledger/channels.yaml`. Webhooks can carry a 15-minute, single-use approve link. The engine now enforces `approval.channels`: `cli`, `web`, and `webhook_link` approvals are accepted only when the task's policy lists that channel, and an empty list means `cli` only. Web and link approvals are `app_asserted`.

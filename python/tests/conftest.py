@@ -52,6 +52,13 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
             __import__("langgraph")
         else:
             pytest.importorskip("langgraph")
+    if item.get_closest_marker("claude"):
+        if os.environ.get("ACTLEDGER_REQUIRE_CLAUDE") == "1":
+            __import__("claude_agent_sdk")
+        else:
+            pytest.importorskip("claude_agent_sdk")
+    if item.get_closest_marker("anthropic_api") and not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set")
 
 
 def run_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
