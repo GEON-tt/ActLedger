@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import shutil
@@ -59,6 +60,18 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
             pytest.importorskip("claude_agent_sdk")
     if item.get_closest_marker("anthropic_api") and not os.environ.get("ANTHROPIC_API_KEY"):
         pytest.skip("ANTHROPIC_API_KEY not set")
+    if item.get_closest_marker("openai_agents"):
+        if os.environ.get("ACTLEDGER_REQUIRE_OPENAI") == "1":
+            importlib.metadata.version("openai-agents")
+            __import__("agents.testing")
+        else:
+            try:
+                importlib.metadata.version("openai-agents")
+            except importlib.metadata.PackageNotFoundError:
+                pytest.skip("openai-agents not installed")
+            pytest.importorskip("agents.testing")
+    if item.get_closest_marker("openai_api") and not os.environ.get("OPENAI_API_KEY"):
+        pytest.skip("OPENAI_API_KEY not set")
 
 
 def run_cli(args: list[str]) -> subprocess.CompletedProcess[str]:

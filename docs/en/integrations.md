@@ -116,3 +116,185 @@ Neither adapter returns `null` from the permission callback. TypeScript 0.3.299 
 | --- | --- | --- |
 | `@anthropic-ai/claude-agent-sdk` | peer `^0.3.142` (`>=0.3.142 <0.4.0`) | `0.3.299` |
 | `claude-agent-sdk` (PyPI) | `>=0.2.166,<0.3` | `0.2.166` |
+
+## OpenAI Agents SDK
+
+`needsApproval` asks the ledger in defer mode. A task that needs a person becomes a native interruption, and the tool does not run. `resolveInterruptions` reads the ledger (`sweep` and `getTask` only) and then calls the SDK's `state.approve` or `state.reject`. The execute wrapper claims the task, runs the tool, and completes or fails the run. The gate must be defer. Wait mode throws `TypeError("openai agents adapter needs a defer-mode ToolGate")`.
+
+The adapter does not expose `approve` or `reject`. Approve with `actledger approve`, `actledger serve`, or a webhook link. `state.approve` is the SDK call that lets the run continue. It is not a ledger approval.
+
+### TypeScript
+
+From this repository the package resolves through the workspace. After publication:
+
+```bash
+npm install @actledger/openai-agents @openai/agents zod
+```
+
+Peer dependency: `@openai/agents` `^0.20.0` (`>=0.20.0 <0.21.0`). This repo tests `0.20.0`. `zod` `^4` satisfies the Agents SDK peer.
+
+```ts
+import { Agent, run } from "@openai/agents";
+import { z } from "zod";
+import { Ledger, createToolGate } from "@actledger/sdk";
+import { createOpenAIAgentsLedger, ledgerTool, resolveInterruptions } from "@actledger/openai-agents";
+
+const ledger = new Ledger({ mode: "local", dir: ".actledger" });
+const gate = createToolGate({ ledger, principal: "u_1", mode: "defer" });
+const binding = createOpenAIAgentsLedger({ gate, ledger });
+
+const sendEmail = ledgerTool(
+  {
+    name: "send_email",
+    description: "Send an email",
+    parameters: z.object({ to: z.string(), body: z.string() }),
+    execute: async ({ to }) => `sent to ${to}`,
+  },
+  binding,
+);
+const agent = new Agent({ name: "mailer", tools: [sendEmail] });
+
+let result = await run(agent, "Email bob@example.com that the report is ready");
+try {
+  while (result.interruptions.length > 0) {
+    const resolved = await resolveInterruptions(result, binding);
+    if (resolved.pending.length > 0) {
+      console.log(resolved.pending.map((item) => item.approveHint).join("\n"));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      continue;
+    }
+    result = await run(agent, result.state);
+  }
+} finally {
+  await binding.abandon();
+  ledger.close();
+}
+```
+
+`ledgerTool` owns `needsApproval`. Passing it throws `TypeError`.
+
+### Python
+
+```bash
+pip install "actledger[openai-agents]"
+```
+
+The extra is `openai-agents>=0.23.1,<0.24`. This repo tests `0.23.1`. Import `actledger.openai_agents` directly. `actledger` does not load it.
+
+```python
+import asyncio
+from agents import Agent, Runner
+from actledger import Ledger
+from actledger.gate import ToolGate
+from actledger.openai_agents import openai_agents_ledger, resolve_interruptions
+
+async def main() -> None:
+    with Ledger(dir=".actledger") as ledger:
+        gate = ToolGate(ledger, principal="u_1", mode="defer")
+        binding = openai_agents_ledger(gate, ledger)
+
+        @binding.function_tool
+        async def send_email(to: str, body: str) -> str:
+            """Send an email."""
+            return f"sent to {to}"
+
+        agent = Agent(name="mailer", tools=[send_email])
+        result = await Runner.run(agent, "Email bob@example.com that the report is ready")
+        try:
+            while result.interruptions:
+                resolved = await resolve_interruptions(result, binding)
+                if resolved.pending:
+                    await asyncio.sleep(2)
+                    continue
+                result = await Runner.run(agent, resolved.state)
+        finally:
+            await binding.abandon()
+
+asyncio.run(main())
+```
+
+Continue with `resolved.state`. `RunResult` has no live state object. `to_state()` returns a new state each time. While the task is still pending, calling `resolve_interruptions` again is safe: that branch does not change the SDK state.
+
+`@binding.function_tool` owns `needs_approval`. Passing it throws `TypeError`.
+
+### What it does
+
+```text
+model function_call(callId)
+  needsApproval
+    already decided for this callId -> return the same answer, do not open another task
+    gate.before (defer, does not block)
+      allow, including policy auto-approve -> return false (before already claimed)
+      pending -> return true, no claim
+      deny or ledger error -> return true
+  return true
+    interruption. The tool does not run.
+    resolveInterruptions reads sweep + getTask
+      approved -> state.approve (SDK). The pending entry stays for execute.
+      still pending -> leave the SDK interruption alone
+      rejected, expired, revoked, drafted, missing, or other -> state.reject(message)
+      deny or ledger error stored earlier -> state.reject(message)
+    run(agent, state)
+      execute wrapper calls gate.resume once, then the tool
+  return false
+    the SDK invokes immediately
+    execute wrapper uses the run already claimed inside before
+```
+
+When a person has to approve, the only claim is `gate.resume` inside the execute wrapper, immediately before the tool runs. `resolveInterruptions` does not claim. When policy auto-approves, defer `before()` claims inside `needsApproval`. The execute wrapper does not claim again. A second claim throws `invalid_transition`.
+
+Edited arguments: if `approvedPayload.args` is a plain object and its sorted JSON differs from the SDK input, the tool receives those args. Otherwise it receives the SDK's parsed input. The recorded executed payload defaults to `approvedPayload`, so strict mode does not report `ContentMismatch` just because the SDK added fields.
+
+`ledgerTool` re-parses edited args with `parameters.parse` when that method exists (Zod). A parse failure fails the task with code `invalid_approved_input` and does not run the tool. `withLedger` and the Python wrappers pass `JSON.stringify` / `json.dumps` of the edited args and let the SDK validate them.
+
+A refusal inside execute throws `ActLedgerToolError` from `ledgerTool`. The adapter's error function returns that message. Other thrown errors still become the SDK's default text, `An error occurred while running the tool. Please try again.`, unless you passed your own `errorFunction`. Set `errorFunction: null` to let the exception propagate. Python returns the refusal string. Normal denials should go through `state.reject`, which sends `ActLedger did not allow <tool>: <reason> (task <id>).` to the model.
+
+### Wrapping existing tools
+
+`withLedger` / `with_ledger` replaces `needsApproval` and wraps invoke. The tool's previous approval policy is discarded. ActLedger's policy decides. A tool that was `needsApproval: true` now interrupts only when the ledger asks for approval.
+
+The Agents SDK catches exceptions inside `invoke` and turns them into the default error string, so a wrapper around `invoke` cannot see the original exception. `withLedger` treats that default string as failure. If the tool has its own `errorFunction`, pass `isToolError`. `ledgerTool` and `@binding.function_tool` wrap the real function, so a thrown error fails the task with the original message and code `tool_error`. Python sync tools run on a worker thread. The adapter keeps a context-local holder so that exception still fails the task. The model still sees the text the SDK chooses.
+
+`withLedgerAgent` / `with_ledger_agent` clones the agent and wraps every function tool. Hosted, computer, shell, and apply-patch tools are left in place. `onUnsupportedTool` is called for each of them. Tools that arrive from `mcpServers` are not in `agent.tools` and are not wrapped.
+
+### Recorded, not enforced
+
+This adapter runs inside the agent process. It is a `recorded` integration. See [guarantees](guarantees.md).
+
+- The model can bypass a recorded tool with a shell, an HTTP client, or a browser.
+- A tool that was not wrapped never reaches the ledger. MCP server tools are in that group.
+- `alwaysApprove` makes later calls skip `needsApproval`. The execute wrapper then calls `before()`. If that returns pending, the tool does not run, and the refusal text includes `approveHint`. The task stays `pending_approval`.
+- `complete` records the executed payload the adapter declares. The default is `approvedPayload`.
+- The adapter does not expose approve or reject.
+
+### Resuming in another process
+
+The pending and deny entries live in `store`. The default store is an in-memory map. `Run` objects are not serializable, so auto-approved runs stay in memory only for the gap between `needsApproval` and invoke.
+
+To resume in another process, pass a store you persist, save `state.toString()`, and restore with `RunState.fromString`. TypeScript calls `needsApproval` again for the same call id after restore. The adapter returns the previous answer and does not open a second task, but only if that store is still there. A new process with an empty store treats the call as new and opens another task. The old task stays in the ledger. This release does not ship a persistent store.
+
+Python does not call `needs_approval` again after `RunState.from_string`. The adapter is still idempotent on the call id.
+
+### Abandoned runs
+
+Policy auto-approve claims inside `needsApproval`. An input guardrail, a cancelled sibling, an abort, or `maxTurns` can stop the SDK from calling invoke. The run stays `executing`. Call `binding.abandon()` in `finally`. It fails each held run with code `abandoned`. `inFlight` is the number of those runs.
+
+### Differences between the TypeScript and Python SDKs
+
+Python `RunResult` has no live `state`. `resolve_interruptions` calls `to_state()` once and returns that state. Keep using `resolved.state`.
+
+After `RunState.fromString`, TypeScript asks `needsApproval` again. After `RunState.from_string`, Python does not.
+
+Python records a thrown tool error through a context variable. The SDK may run a sync function on a thread; the holder object is the same one after `copy_context`. TypeScript `ledgerTool` sees the exception directly because it wraps `execute`.
+
+TypeScript `ledgerTool` runs Zod `parameters.parse` on edited args. Python and `withLedger` hand the edited JSON string back to the SDK.
+
+### Pinned versions
+
+| Package | Range | Checked |
+| --- | --- | --- |
+| `@openai/agents` | peer `^0.20.0` (`>=0.20.0 <0.21.0`) | `0.20.0` |
+| `zod` | dev `^4.0.0` (peer of `@openai/agents`) | same range as the Claude package |
+| `openai-agents` (PyPI) | `>=0.23.1,<0.24` | `0.23.1` |
+
+A 0.x minor is treated as incompatible, so the range stops before the next minor.

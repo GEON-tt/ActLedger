@@ -14,6 +14,7 @@ const packages = [
   { dir: "cli", tarball: "actledger-cli-0.1.0.tgz" },
   { dir: "mcp-proxy", tarball: "actledger-mcp-proxy-0.1.0.tgz" },
   { dir: "claude-agent-sdk", tarball: "actledger-claude-agent-sdk-0.1.0.tgz" },
+  { dir: "openai-agents", tarball: "actledger-openai-agents-0.1.0.tgz" },
 ] as const;
 
 function step(name: string): void {
@@ -144,6 +145,13 @@ try {
       "package/dist/index.js",
       "package/dist/index.d.ts",
     ],
+    "openai-agents": [
+      "package/package.json",
+      "package/LICENSE",
+      "package/README.md",
+      "package/dist/index.js",
+      "package/dist/index.d.ts",
+    ],
   };
   for (const pkg of packages) {
     const tgz = path.join(tarballs, pkg.tarball);
@@ -190,6 +198,7 @@ try {
           "@actledger/cli": "file:../tarballs/actledger-cli-0.1.0.tgz",
           "@actledger/mcp-proxy": "file:../tarballs/actledger-mcp-proxy-0.1.0.tgz",
           "@actledger/claude-agent-sdk": "file:../tarballs/actledger-claude-agent-sdk-0.1.0.tgz",
+          "@actledger/openai-agents": "file:../tarballs/actledger-openai-agents-0.1.0.tgz",
         },
         overrides: {
           "@actledger/core": "$@actledger/core",
@@ -222,7 +231,8 @@ import { verifyWebhook } from "@actledger/sdk/webhook";
 import { jcs, verifyJsonl } from "@actledger/core";
 import { createProxy } from "@actledger/mcp-proxy";
 import { createClaudeAgentAdapter } from "@actledger/claude-agent-sdk";
-for (const [n, f] of Object.entries({ verifyWebhook, jcs, verifyJsonl, createProxy, createClaudeAgentAdapter })) {
+import { createOpenAIAgentsLedger, ledgerTool, withLedger, resolveInterruptions } from "@actledger/openai-agents";
+for (const [n, f] of Object.entries({ verifyWebhook, jcs, verifyJsonl, createProxy, createClaudeAgentAdapter, createOpenAIAgentsLedger, ledgerTool, withLedger, resolveInterruptions })) {
   if (typeof f !== "function") throw new Error(\`\${n} missing\`);
 }
 const ledger = new Ledger({ mode: "local", dir: ".actledger" });
@@ -289,7 +299,7 @@ ledger.close();
   step("消费方类型检查");
   fs.writeFileSync(
     path.join(app, "smoke.ts"),
-    `import type { ClaudeAgentAdapter } from "@actledger/claude-agent-sdk";\nimport type { Receipt, TaskView } from "@actledger/sdk";\n${smoke}`,
+    `import type { ClaudeAgentAdapter } from "@actledger/claude-agent-sdk";\nimport type { OpenAIAgentsLedger } from "@actledger/openai-agents";\nimport type { Receipt, TaskView } from "@actledger/sdk";\n${smoke}`,
   );
   fs.writeFileSync(
     path.join(app, "tsconfig.json"),

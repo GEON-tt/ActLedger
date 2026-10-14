@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **OpenAI Agents SDK adapter**
+
+  `@actledger/openai-agents` and `actledger.openai_agents` (extra `actledger[openai-agents]`) mount a defer-mode tool gate on the OpenAI Agents SDK. `needsApproval` asks the ledger; a pending task becomes a native interruption. `resolveInterruptions` reads the ledger and calls the SDK's `state.approve` or `state.reject`, so the run continues or the model gets the deny reason. The execute wrapper claims the task right before the tool runs and completes or fails it. Approval still happens out of process. This is recorded integration: unwrapped tools and MCP server tools never reach the ledger.
+
 - **Claude Agent SDK adapter**
 
   `@actledger/claude-agent-sdk` and `actledger.claude_agent` (extra `actledger[claude]`) mount a wait-mode tool gate on the Claude Agent SDK. `canUseTool` asks the ledger and returns allow with the approved input, or deny with the task id and reason. `PostToolUse` completes the task and `PostToolUseFailure` fails it. This is recorded integration: tools that the SDK auto-allows never reach `canUseTool`.

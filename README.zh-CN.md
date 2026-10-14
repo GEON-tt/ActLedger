@@ -55,7 +55,8 @@ pnpm actledger verify receipts.jsonl --keys .actledger/keys.json
 | [`@actledger/cli`](packages/cli) | `actledger`：初始化、批准、导出、校验 |
 | [`@actledger/mcp-proxy`](packages/mcp-proxy) | 放在上游服务器前面的 stdio MCP 代理 |
 | [`@actledger/claude-agent-sdk`](packages/claude-agent-sdk) | Claude Agent SDK 适配器：在工具闸门上挂 `canUseTool` 和 `PostToolUse` 钩子 |
-| [`actledger`](python)（Python） | 回执校验器、经 `actledger rpc` 访问本地账本的客户端、可选的 LangGraph 和 Claude Agent SDK 适配器 |
+| [`@actledger/openai-agents`](packages/openai-agents) | OpenAI Agents SDK 适配器：在工具闸门上做 `needsApproval` 中断和 execute 记录 |
+| [`actledger`](python)（Python） | 回执校验器、经 `actledger rpc` 访问本地账本的客户端、可选的 LangGraph、Claude Agent SDK 和 OpenAI Agents SDK 适配器 |
 
 协议字段见 [spec/zh-CN/README.md](spec/zh-CN/README.md)。架构概要见 [docs/zh-CN/architecture.md](docs/zh-CN/architecture.md)。
 

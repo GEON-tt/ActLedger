@@ -1,0 +1,39 @@
+{
+  "name": "@actledger/openai-agents",
+  "version": "0.1.0",
+  "description": "ActLedger adapter for the OpenAI Agents SDK: needsApproval interruptions and execute recording backed by a ToolGate",
+  "license": "Apache-2.0",
+  "author": "ActLedger contributors",
+  "keywords": ["actledger", "openai", "openai-agents", "agent", "approval", "ledger"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GEON-tt/ActLedger.git",
+    "directory": "packages/openai-agents"
+  },
+  "bugs": { "url": "https://github.com/GEON-tt/ActLedger/issues" },
+  "homepage": "https://github.com/GEON-tt/ActLedger/tree/main/packages/openai-agents#readme",
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "publishConfig": { "access": "public" },
+  "dependencies": {
+    "@actledger/sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "@openai/agents": "^0.20.0"
+  },
+  "devDependencies": {
+    "@openai/agents": "0.20.0",
+    "zod": "^4.0.0"
+  }
+}

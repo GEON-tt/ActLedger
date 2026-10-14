@@ -103,6 +103,8 @@ with Ledger(dir=".actledger") as ledger:
 
 Claude Agent SDK mounting is documented in [integrations](integrations.md).
 
+OpenAI Agents SDK mounting uses defer mode. See [integrations](integrations.md#openai-agents-sdk).
+
 ## Recorded, not enforced
 
 ToolGate runs inside the agent process. It is recorded integration. Approval and receipts cover calls that go through it. The model can still use a shell, a generic HTTP client, or a browser to go around it. The enforced path is the [MCP proxy](mcp-proxy.md). See [guarantees](guarantees.md).

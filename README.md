@@ -55,7 +55,8 @@ Point an MCP client at this checkout. `--ledger` must be an absolute path:
 | [`@actledger/cli`](packages/cli) | `actledger` for init, approve, export, and verify |
 | [`@actledger/mcp-proxy`](packages/mcp-proxy) | Stdio MCP proxy in front of an upstream server |
 | [`@actledger/claude-agent-sdk`](packages/claude-agent-sdk) | Claude Agent SDK adapter: `canUseTool` and `PostToolUse` hooks on a ToolGate |
-| [`actledger`](python) (Python) | Receipt verifier, local ledger client over `actledger rpc`, optional LangGraph and Claude Agent SDK adapters |
+| [`@actledger/openai-agents`](packages/openai-agents) | OpenAI Agents SDK adapter: `needsApproval` interruptions and execute recording on a ToolGate |
+| [`actledger`](python) (Python) | Receipt verifier, local ledger client over `actledger rpc`, optional LangGraph, Claude Agent SDK, and OpenAI Agents SDK adapters |
 
 Normative field rules are in [spec/README.md](spec/README.md). A short architecture note is in [docs/en/architecture.md](docs/en/architecture.md).
 
