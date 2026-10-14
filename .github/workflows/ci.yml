@@ -17,7 +17,7 @@ jobs:
     name: test (node 22)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4          # 读取根 package.json 的 packageManager
       - uses: actions/setup-node@v4
         with:
@@ -60,7 +60,7 @@ jobs:
           - python: "3.12"
             extras: "test,langgraph,claude,openai-agents"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -99,7 +99,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
