@@ -31,6 +31,6 @@
     "@actledger/sdk": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "yaml": "^2.6.1",
-    "zod": "^3.25.0"
+    "zod": "^4.6.6"
   }
 }
