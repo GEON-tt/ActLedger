@@ -17,6 +17,8 @@ ActLedger 是 agent 应用主动接入的 SDK。没有经过 ActLedger 的动作
 
 高于 `app_asserted` 的本地 CLI 批准，以及任何 step-up，都会标上 `approval.auth.simulated`。CLI 不做渠道登录，也不做 WebAuthn。校验器能看见这个标志。它不能把标志变成真实的身份确认。
 
+网页和链接审批是 `app_asserted`，不代表渠道身份核验。
+
 本地目录里 `master.key` 和 `ledger.db` 放在一起。这只适合开发，不是生产环境的密钥管理。
 
 策略词汇里的高风险等级是 `send`、`spend`、`delete`。这类动作没有被任何 coverage glob 盖住时，加载会警告 `uncovered_high_risk`。警告不阻止动作。

@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **Local approval page and webhook channel**
+
+  `actledger serve` runs an approval page on 127.0.0.1 with a one-time login link, and posts signed webhooks configured in `.actledger/channels.yaml`. Webhooks can carry a 15-minute, single-use approve link. The engine now enforces `approval.channels`: `cli`, `web`, and `webhook_link` approvals are accepted only when the task's policy lists that channel, and an empty list means `cli` only. Web and link approvals are `app_asserted`.
+
 - **Tool gate**
 
   TypeScript `createToolGate` and Python `actledger.gate.ToolGate` split a tool call into `before` and `after`. `ledger.guard` and `@ledger.guard` now run on a wait-mode tool gate. Their behavior is unchanged.

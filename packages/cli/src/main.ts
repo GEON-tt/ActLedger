@@ -5,6 +5,7 @@ import { devCommand, tasksCommand } from "./commands/dev.js";
 import { exportCommand, showCommand, verifyCommand } from "./commands/export.js";
 import { initCommand } from "./commands/init.js";
 import { rpcCommand } from "./commands/rpc.js";
+import { serveCommand } from "./commands/serve.js";
 
 interface Flags {
   dir: string;
@@ -20,6 +21,8 @@ interface Flags {
   keys?: string;
   from?: number;
   to?: number;
+  port?: number;
+  approver?: string;
   positionals: string[];
 }
 
@@ -59,6 +62,18 @@ function parse(argv: string[]): { command: string; flags: Flags } {
     else if (arg === "--keys") flags.keys = next();
     else if (arg === "--from") flags.from = Number(next());
     else if (arg === "--to") flags.to = Number(next());
+    else if (arg === "--port") {
+      const value = Number(next());
+      if (!Number.isInteger(value) || value < 1 || value > 65535) {
+        throw new LedgerError("invalid_request", "--port must be an integer 1-65535", 400);
+      }
+      flags.port = value;
+    }
+    else if (arg === "--approver") {
+      const value = next();
+      if (!value) throw new LedgerError("invalid_request", "--approver requires a principal", 400);
+      flags.approver = value;
+    }
     else if (arg === "--help" || arg === "-h") flags.positionals.push("help");
     else if (arg.startsWith("-")) throw new LedgerError("invalid_request", `unknown flag ${arg}`, 400);
     else flags.positionals.push(arg);
@@ -78,6 +93,8 @@ function help(): void {
   actledger verify <receipts.jsonl> --keys <keys.json> [--secrets file] [--json]
   actledger show <receipt>
   actledger rpc [--dir .actledger]   JSON lines on stdin/stdout (used by the Python SDK)
+  actledger serve [--dir .actledger] [--port 4319] [--approver <principal>]
+                    local approval page on 127.0.0.1 and webhook notifier
 
 Local mode records approvals you make in this CLI. An assurance above
 app_asserted, or --step-up, is marked simulated: this CLI does not check
@@ -144,15 +161,23 @@ function main(): void {
     rpcCommand({ dir: flags.dir });
     return;
   }
+  if (command === "serve") {
+    serveCommand({ dir: flags.dir, port: flags.port ?? 4319, approver: flags.approver }).catch(handleError);
+    return;
+  }
   throw new LedgerError("invalid_request", `unknown command ${command}`, 400);
 }
 
-try {
-  main();
-} catch (error) {
+function handleError(error: unknown): never {
   if (error instanceof LedgerError) {
     process.stderr.write(`error: ${error.code}: ${error.message}\n`);
     process.exit(1);
   }
   throw error;
+}
+
+try {
+  main();
+} catch (error) {
+  handleError(error);
 }

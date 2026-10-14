@@ -4,7 +4,7 @@ defaults:
   timezone: UTC
   content_mode: strict
   approval:
-    channels: [cli]
+    channels: [cli, web]
     timeout: 15m
     allow_edit: true
     min_assurance: app_asserted

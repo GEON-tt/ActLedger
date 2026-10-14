@@ -109,6 +109,8 @@ schema 列出这些字段，并且禁止把 `note`、`description`、`result` �
 
 `simulated`：本地 CLI 在保证高于 `app_asserted`，或声明了 step-up 时，把 `approval.auth.simulated` 设为 `true`。它表示这次批准没有真实的渠道身份确认。
 
+`approval.channel` 取值 `cli`、`web` 或 `webhook_link`。`web` 和 `webhook_link` 恒为 `app_asserted`，且 `simulated: false`。
+
 ## 6. 规范化（JCS）
 
 回执哈希和承诺都先做 `jcs`。实现覆盖 RFC 8785 的一个子集，并且拒绝子集以外的值。

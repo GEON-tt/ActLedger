@@ -2,7 +2,7 @@
 
 # Architecture
 
-0.1.0 is a local ledger. There is no multi-tenant HTTP server, PostgreSQL, approval channel, or external timestamp anchor. Those stay behind `Store` on the engine and `Transport` on the SDK.
+0.1.0 is a local ledger. There is no multi-tenant HTTP server, PostgreSQL, or external timestamp anchor. The only approval channel is the local `actledger serve` (127.0.0.1). Hosted services stay behind `Store` on the engine and `Transport` on the SDK.
 
 ```mermaid
 flowchart LR

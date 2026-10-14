@@ -64,6 +64,8 @@ zod object 默认剥离未知键，不因此报错。已知键类型不对、YAM
 | `min_assurance` | `app_asserted` | 同上。MUST 是 `app_asserted`、`channel_verified`、`user_signed` |
 | `step_up` | `null`（字段省略时） | 规则里显式写出才替换，包括 `null` |
 
+**强制。** `approve` 和 `reject` 带一个渠道（CLI 是 `cli`，`actledger serve` 是 `web`，签名链接是 `webhook_link`）。引擎只在该渠道属于任务合并后的 `channels` 时接受决定。空列表表示 `[cli]`。否则返回 `403 channel_not_allowed`，并且不写回执。列表在任务创建时固定。回执记录 `approval.channel`，但不记录允许列表，所以 `verify` 不复核它。
+
 `step_up` 是下列之一：
 
 - 非空字符串，表示方法名，例如 `webauthn`。
@@ -168,7 +170,7 @@ defaults:
   timezone: UTC
   content_mode: strict
   approval:
-    channels: [cli]
+    channels: [cli, web]
     timeout: 15m
     allow_edit: true
     min_assurance: app_asserted

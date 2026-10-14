@@ -144,3 +144,9 @@ export function evaluate(policy: LoadedPolicy, action: ActionRequest, ctxBase: {
     reversible: action.reversible ?? catalog?.reversible ?? true,
   };
 }
+
+/** Channels allowed to approve or reject a task. An empty list keeps the local CLI as the only channel. */
+export function effectiveChannels(decision: Pick<Decision, "channels">): string[] {
+  const list = Array.isArray(decision.channels) ? decision.channels : [];
+  return list.length > 0 ? list : ["cli"];
+}

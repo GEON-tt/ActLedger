@@ -64,6 +64,8 @@ If a high-risk action is not hit by any `coverage` entry's `action` glob, loadin
 | `min_assurance` | `app_asserted` | Same. MUST be `app_asserted`, `channel_verified`, or `user_signed` |
 | `step_up` | `null` (when the field is omitted) | Replaced only when the rule writes it, including `null` |
 
+**Enforcement.** `approve` and `reject` carry a channel (`cli` from the CLI, `web` from `actledger serve`, `webhook_link` from a signed link). The engine accepts the decision only if the channel is in the task's merged `channels`. An empty list means `[cli]`. Otherwise it returns `403 channel_not_allowed` and writes no receipt. The list is fixed when the task is created. Receipts record `approval.channel` but not the allowed list, so `verify` does not re-check it.
+
 `step_up` is one of:
 
 - A non-empty string, the method name, for example `webauthn`.
@@ -168,7 +170,7 @@ defaults:
   timezone: UTC
   content_mode: strict
   approval:
-    channels: [cli]
+    channels: [cli, web]
     timeout: 15m
     allow_edit: true
     min_assurance: app_asserted

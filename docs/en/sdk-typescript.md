@@ -42,6 +42,6 @@ If the process stops after claim, or the execution deadline passes, the task bec
 
 The SDK does not approve tasks. Approval is `actledger approve` (or, later, a channel that is not the agent). The agent's key is not an approval credential.
 
-Webhook signature checks are exported from `@actledger/sdk/webhook` for a future server. The local engine does not send webhooks.
+Webhook signature checks are exported from `@actledger/sdk/webhook`. `actledger serve` sends signed webhooks and serves a local approval page. See [approval](approval.md).
 
 States and receipt fields: [state machine](../../spec/state-machine.md), [receipts](../../spec/receipt.md).

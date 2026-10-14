@@ -2,7 +2,7 @@
 
 # 架构
 
-0.1.0 是本地账本。没有多租户 HTTP 服务、PostgreSQL、审批渠道，也没有外部时间戳锚定。这些以后走引擎的 `Store` 和 SDK 的 `Transport`。
+0.1.0 是本地账本。没有多租户 HTTP 服务、PostgreSQL，也没有外部时间戳锚定。审批渠道仅本地 `actledger serve`（127.0.0.1）。托管能力以后走引擎的 `Store` 和 SDK 的 `Transport`。
 
 ```mermaid
 flowchart LR

@@ -42,6 +42,6 @@ ledger.close();
 
 SDK 不批准任务。批准是 `actledger approve`（以后也可以是 agent 之外的渠道）。agent 的密钥不是批准凭证。
 
-`@actledger/sdk/webhook` 导出了给未来服务端用的 webhook 签名校验。本地引擎不发送 webhook。
+`@actledger/sdk/webhook` 导出了 webhook 签名校验。`actledger serve` 发送签名 webhook，并提供本地审批页。见[审批](approval.md)。
 
 状态和回执字段见[状态机](../../spec/zh-CN/state-machine.md)、[回执](../../spec/zh-CN/receipt.md)。

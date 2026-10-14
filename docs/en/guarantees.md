@@ -17,6 +17,8 @@ The hash chain shows that a recorded receipt was not altered. It does not show t
 
 Local CLI approvals above `app_asserted`, and any step-up, are marked `approval.auth.simulated`. The CLI does not perform channel login or WebAuthn. A verifier can see that flag. It cannot turn the flag into a real identity check.
 
+Web page and signed-link approvals are `app_asserted`. That value means this application claims the user confirmed. It does not represent a channel identity check.
+
 `master.key` sits next to `ledger.db` in the local directory. That layout is for development. It is not a production key-management story.
 
 High-risk levels in the policy vocabulary are `send`, `spend`, and `delete`. The loader warns with `uncovered_high_risk` when such an action has no coverage glob. The warning does not block the action.

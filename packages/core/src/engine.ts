@@ -7,7 +7,7 @@ import { DEFAULT_POLICY } from "./default-policy.js";
 import { LedgerError } from "./errors.js";
 import { defaultIdFactory, type IdFactory } from "./ids.js";
 import { hourInTimeZone, formatTimestamp, parseTimestamp } from "./time.js";
-import { evaluate, type ActionRequest, type Decision } from "./policy/evaluate.js";
+import { evaluate, effectiveChannels, type ActionRequest, type Decision } from "./policy/evaluate.js";
 import { loadPolicy, type LoadedPolicy } from "./policy/load.js";
 import { assuranceRank, coverageSchema, isUserAssurance, type CoverageEntry, type UserAssurance } from "./policy/schema.js";
 import {
@@ -888,6 +888,15 @@ export class LedgerEngine {
     if (input.approverPrincipalId !== task.principalId) {
       throw new LedgerError("approver_mismatch", "approver does not match the task principal", 403);
     }
+    const channel = input.channel ?? "cli";
+    const allowedChannels = effectiveChannels(task.decision);
+    if (!allowedChannels.includes(channel)) {
+      throw new LedgerError(
+        "channel_not_allowed",
+        `channel ${channel} is not allowed for this task; allowed: ${allowedChannels.join(", ")}`,
+        403,
+      );
+    }
     if (!isUserAssurance(input.assurance)) {
       throw new LedgerError("invalid_request", `unknown assurance ${String(input.assurance)}`, 400);
     }
@@ -935,11 +944,11 @@ export class LedgerEngine {
       appId: this.appId,
       taskId: task.id,
       approverPrincipalId: input.approverPrincipalId,
-      channel: input.channel ?? "cli",
+      channel: channel,
       decision,
       presentedHash: input.presentedHash,
       editedPayloadHash: approvedSecret ? approvedHash : null,
-      method: input.channel ?? "cli",
+      method: channel,
       stepUp: Boolean(input.stepUp),
       simulated,
       assurance: input.assurance,
@@ -959,9 +968,9 @@ export class LedgerEngine {
         approval: omit({
           approval_id: approvalId,
           approver: input.approverPrincipalId,
-          channel: input.channel ?? "cli",
+          channel: channel,
           auth: {
-            method: input.channel ?? "cli",
+            method: channel,
             step_up: input.stepUp ? task.decision.stepUp : null,
             simulated,
           },

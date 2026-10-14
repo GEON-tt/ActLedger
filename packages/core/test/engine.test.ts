@@ -7,6 +7,7 @@ import { commit, GENESIS_HASH, jcs, sha256Hex } from "../src/canonical";
 import { signerFromPem, type Signer } from "../src/crypto";
 import { LedgerError } from "../src/errors";
 import { initLocalDir, openLedger, type LedgerEngine } from "../src/engine";
+import { effectiveChannels } from "../src/policy/evaluate";
 import { normalizePayload, payloadHash, type Payload } from "../src/payload";
 import { buildReceipt, receiptHash, unsignedReceipt, type Receipt, type UnsignedReceipt } from "../src/receipts";
 import { RECEIPT_V01, SECRETS_V } from "../src/secrets";
@@ -1222,5 +1223,183 @@ rules:
     expect(() => engine.setCoverageOverlay([{ action: "email.send", mode: "enforced" }])).toThrowError(
       expect.objectContaining({ code: "invalid_request" }),
     );
+  });
+});
+
+const cliOnlyPolicy = `
+version: 1
+defaults:
+  unknown_action: require_approval
+  approval: { channels: [cli], timeout: 15m, min_assurance: app_asserted }
+actions:
+  email.send: { level: write }
+`;
+
+const omittedChannelsPolicy = `
+version: 1
+defaults:
+  unknown_action: require_approval
+  approval:
+    timeout: 15m
+    min_assurance: app_asserted
+actions:
+  email.send: { level: write }
+`;
+
+const webPolicy = `
+version: 1
+defaults:
+  unknown_action: require_approval
+  approval: { channels: [cli, web], timeout: 15m, min_assurance: app_asserted }
+actions:
+  email.send: { level: write }
+`;
+
+const webOnlyRulePolicy = `
+version: 1
+defaults:
+  unknown_action: require_approval
+  approval:
+    channels: [cli]
+    timeout: 15m
+    min_assurance: app_asserted
+actions:
+  email.send: { level: write }
+rules:
+  - id: web-only
+    match: { action: email.send }
+    effect: require_approval
+    approval:
+      channels: [web]
+`;
+
+describe("approval channels", () => {
+  it("rejects web when the task only allows cli, then accepts cli", () => {
+    const { engine } = setup(cliOnlyPolicy);
+    try {
+      const created = requestEmail(engine, "channels-cli");
+      const before = engine.exportReceipts().length;
+      expect(() =>
+        engine.approve(created.task.id, {
+          approverPrincipalId: "u_1",
+          channel: "web",
+          assurance: "app_asserted",
+          presentedHash: created.task.payloadHash,
+        }),
+      ).toThrowError(expect.objectContaining({ code: "channel_not_allowed", status: 403 }));
+      expect(engine.exportReceipts().length).toBe(before);
+      expect(engine.getTask(created.task.id)?.state).toBe("pending_approval");
+      expect(
+        engine.approve(created.task.id, {
+          approverPrincipalId: "u_1",
+          channel: "cli",
+          assurance: "app_asserted",
+          presentedHash: created.task.payloadHash,
+        }).task.state,
+      ).toBe("approved");
+    } finally {
+      engine.close();
+    }
+  });
+
+  it("treats an omitted channel list as cli only", () => {
+    const { engine } = setup(omittedChannelsPolicy);
+    try {
+      const created = requestEmail(engine, "channels-omit");
+      expect(created.task.decision.channels).toEqual([]);
+      expect(() =>
+        engine.approve(created.task.id, {
+          approverPrincipalId: "u_1",
+          channel: "web",
+          assurance: "app_asserted",
+          presentedHash: created.task.payloadHash,
+        }),
+      ).toThrowError(expect.objectContaining({ code: "channel_not_allowed", status: 403 }));
+      expect(
+        engine.approve(created.task.id, {
+          approverPrincipalId: "u_1",
+          assurance: "app_asserted",
+          presentedHash: created.task.payloadHash,
+        }).task.state,
+      ).toBe("approved");
+    } finally {
+      engine.close();
+    }
+  });
+
+  it("records a web approval as app_asserted", () => {
+    const { engine } = setup(webPolicy);
+    try {
+      const created = requestEmail(engine, "channels-web");
+      const approved = engine.approve(created.task.id, {
+        approverPrincipalId: "u_1",
+        channel: "web",
+        assurance: "app_asserted",
+        presentedHash: created.task.payloadHash,
+        simulated: false,
+      });
+      const approval = approved.receipt.body.approval as {
+        channel?: string;
+        assurance?: string;
+        auth?: { method?: string; simulated?: boolean };
+      };
+      expect(approval.channel).toBe("web");
+      expect(approval.auth?.method).toBe("web");
+      expect(approval.assurance).toBe("app_asserted");
+      expect(approval.auth?.simulated).toBe(false);
+    } finally {
+      engine.close();
+    }
+  });
+
+  it("lets a rule replace the default channel list", () => {
+    const { engine } = setup(webOnlyRulePolicy);
+    try {
+      const created = requestEmail(engine, "channels-rule");
+      expect(created.task.decision.channels).toEqual(["web"]);
+      expect(() =>
+        engine.approve(created.task.id, {
+          approverPrincipalId: "u_1",
+          channel: "cli",
+          assurance: "app_asserted",
+          presentedHash: created.task.payloadHash,
+        }),
+      ).toThrowError(expect.objectContaining({ code: "channel_not_allowed", status: 403 }));
+      expect(
+        engine.approve(created.task.id, {
+          approverPrincipalId: "u_1",
+          channel: "web",
+          assurance: "app_asserted",
+          presentedHash: created.task.payloadHash,
+        }).task.state,
+      ).toBe("approved");
+    } finally {
+      engine.close();
+    }
+  });
+
+  it("rejects a web rejection when the task only allows cli", () => {
+    const { engine } = setup(cliOnlyPolicy);
+    try {
+      const created = requestEmail(engine, "channels-reject");
+      const before = engine.exportReceipts().length;
+      expect(() =>
+        engine.reject(created.task.id, {
+          approverPrincipalId: "u_1",
+          channel: "web",
+          assurance: "app_asserted",
+          presentedHash: created.task.payloadHash,
+        }),
+      ).toThrowError(expect.objectContaining({ code: "channel_not_allowed", status: 403 }));
+      expect(engine.exportReceipts().length).toBe(before);
+      expect(engine.getTask(created.task.id)?.state).toBe("pending_approval");
+    } finally {
+      engine.close();
+    }
+  });
+
+  it("maps an empty or missing channel list to cli", () => {
+    expect(effectiveChannels({ channels: [] })).toEqual(["cli"]);
+    expect(effectiveChannels({} as never)).toEqual(["cli"]);
   });
 });

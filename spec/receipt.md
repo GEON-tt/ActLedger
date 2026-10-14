@@ -109,6 +109,8 @@ In the schema, `actor.type` is `agent`, `user`, `policy`, or `system`. The verif
 
 `simulated`: when a local CLI approval is above `app_asserted`, or a step-up was declared, `approval.auth.simulated` is `true`. It means this approval had no real channel identity check.
 
+`approval.channel` is `cli`, `web`, or `webhook_link`. `web` and `webhook_link` are always `app_asserted` and `simulated: false`.
+
 ## 6. Canonicalization (JCS)
 
 Receipt hashes and commitments both start with `jcs`. The implementation covers a subset of RFC 8785 and rejects values outside that subset.

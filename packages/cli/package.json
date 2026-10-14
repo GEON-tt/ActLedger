@@ -21,5 +21,8 @@
     "clean": "rm -rf dist"
   },
   "publishConfig": { "access": "public" },
-  "dependencies": { "@actledger/core": "workspace:*" }
+  "dependencies": {
+    "@actledger/core": "workspace:*",
+    "yaml": "^2.6.1"
+  }
 }

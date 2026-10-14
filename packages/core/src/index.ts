@@ -30,7 +30,7 @@ export {
   type DriftComparison,
 } from "./payload.js";
 export { loadPolicy } from "./policy/load.js";
-export { evaluate, type ActionRequest, type Decision } from "./policy/evaluate.js";
+export { evaluate, effectiveChannels, type ActionRequest, type Decision } from "./policy/evaluate.js";
 export {
   assuranceRank,
   isUserAssurance,
