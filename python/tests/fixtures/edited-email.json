@@ -1,0 +1,12 @@
+{
+  "action": "email.send",
+  "args": {
+    "to": ["a@example.com"],
+    "subject": "周会（修订）"
+  },
+  "content": {
+    "content_type": "text/plain",
+    "text": "回复邮件：周会 😀"
+  },
+  "allowed_drift": ["args.signature"]
+}

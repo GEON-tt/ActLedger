@@ -1,0 +1,23 @@
+# Changelog
+
+## 0.1.0 — unreleased
+
+Not published to npm or PyPI.
+
+### Added
+
+- **Receipt format 0.2**
+
+  Receipts are written as `actledger.receipt/0.2`. Intent text, error messages, and notes are HMAC commitments, and payload hashes are salted per task. `verify` still accepts `actledger.receipt/0.1` and can check a secrets file with `--secrets`. A `step_up` field on an `allow`, `deny`, or `draft_only` rule is rejected when the policy loads. `defaults.approval.step_up` is inherited by `require_approval` rules.
+
+- **MCP proxy**
+
+  `@actledger/mcp-proxy` wraps an upstream MCP server. Each `tools/call` is decided by `policy.yaml`, then recorded as a signed receipt. Tools exposed by the proxy are declared with coverage `enforced` and `via: mcp-proxy`. A pending call can be resumed with the `check_task` tool.
+
+- **Buildable packages**
+
+  The four npm packages build from this repository. GitHub Actions runs typecheck, tests, the Python job, and `pnpm pack:check`. `LICENSE`, `CONTRIBUTING`, `SECURITY`, and `spec/` describe how to build, report issues, and check receipts.
+
+- **Python SDK**
+
+  The `actledger` Python package verifies the same test vectors as TypeScript, opens a local ledger through `actledger rpc`, and includes an optional LangGraph adapter.

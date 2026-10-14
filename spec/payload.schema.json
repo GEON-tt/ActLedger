@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://actledger.dev/schema/payload-0.1.json",
+  "title": "ActLedger action payload",
+  "type": "object",
+  "required": ["action", "args"],
+  "properties": {
+    "action": { "type": "string" },
+    "args": { "type": "object" },
+    "content": { "type": "object" },
+    "allowed_drift": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

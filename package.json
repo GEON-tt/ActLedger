@@ -1,0 +1,27 @@
+{
+  "name": "actledger",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "test": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "pnpm -r --filter \"./packages/*\" run build",
+    "clean": "pnpm -r --filter \"./packages/*\" run clean",
+    "pack:check": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx scripts/pack-check.ts",
+    "changeset": "changeset",
+    "actledger": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx packages/cli/src/main.ts",
+    "mcp-proxy": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx packages/mcp-proxy/src/main.ts",
+    "vectors": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx scripts/gen-vectors.ts"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "alg": "hmac-sha256",
+  "salt_hex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+  "cases": [
+    {
+      "label": "string",
+      "value": "hello",
+      "commit": "hmac-sha256:f7310ca1b67234cb187bb3cdd53e4392434b142c450afad680e41ea08c94cc45"
+    },
+    {
+      "label": "object",
+      "value": {
+        "b": 1,
+        "a": 2
+      },
+      "commit": "hmac-sha256:1212f6215d90dc9459a619dcbd8777da008ba737ec37a93b9790ccfd9ccc56c4"
+    },
+    {
+      "label": "zh",
+      "value": "回复邮件",
+      "commit": "hmac-sha256:aae87dab4a2233e2f4bf91d7f3bbeef77dc54bd2b44308baee6a35dbfa6511d2"
+    },
+    {
+      "label": "payload",
+      "value": {
+        "action": "calendar.create",
+        "args": {
+          "title": "standup"
+        }
+      },
+      "commit": "hmac-sha256:26b3fb86826d13d1912d63897b145f7d611e75725f5711494238ced3feb9a9f2"
+    }
+  ]
+}

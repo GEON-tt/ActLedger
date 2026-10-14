@@ -1,0 +1,33 @@
+version: 1
+defaults:
+  unknown_action: require_approval
+  timezone: UTC
+  content_mode: strict
+  approval:
+    channels: [cli]
+    timeout: 15m
+    allow_edit: true
+    min_assurance: app_asserted
+  claim_deadline: 24h
+  execution_timeout: 15m
+actions:
+  email.send:
+    level: send
+    blast_radius: others
+    reversible: false
+  calendar.create:
+    level: write
+    blast_radius: self
+    reversible: true
+rules:
+  - id: email-approve
+    match:
+      action: email.send
+    effect: require_approval
+    approval:
+      min_assurance: app_asserted
+      allow_edit: true
+  - id: calendar-allow
+    match:
+      action: calendar.create
+    effect: allow

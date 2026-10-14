@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "actledger"
+version = "0.1.0"
+description = "ActLedger Python SDK: receipt verifier, local ledger client, LangGraph adapter"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "ActLedger contributors" }]
+keywords = ["actledger", "agent", "ledger", "receipts", "audit"]
+dependencies = ["cryptography>=42"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/GEON-tt/ActLedger"
+Repository = "https://github.com/GEON-tt/ActLedger"
+Documentation = "https://github.com/GEON-tt/ActLedger/blob/main/docs/en/sdk-python.md"
+Changelog = "https://github.com/GEON-tt/ActLedger/blob/main/CHANGELOG.md"
+Issues = "https://github.com/GEON-tt/ActLedger/issues"
+
+[project.optional-dependencies]
+langgraph = ["langgraph>=1.0,<2"]
+test = ["pytest>=8"]
+dev = ["actledger[test,langgraph]"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/actledger"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+
+[tool.hatch.build.targets.sdist]
+include = ["src/actledger", "README.md", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+  "node: needs node and the repo's node_modules/tsx (skipped locally if missing, required in CI)",
+  "langgraph: needs the langgraph extra",
+]

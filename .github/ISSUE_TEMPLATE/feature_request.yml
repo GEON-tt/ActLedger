@@ -1,0 +1,29 @@
+name: Feature request (功能需求)
+description: Propose a feature (提出一个功能需求)
+title: "feat: "
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Scenario (场景)
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected behavior (期望行为)
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Does this change the receipt format or the protocol? (是否影响回执格式或协议)
+      options:
+        - "No (否)"
+        - "Yes (是)"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives (替代方案)

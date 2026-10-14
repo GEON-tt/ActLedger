@@ -1,0 +1,30 @@
+{
+  "name": "@actledger/core",
+  "version": "0.1.0",
+  "description": "ActLedger protocol core: receipts, payload, state machine, policy, verify, SQLite ledger",
+  "license": "Apache-2.0",
+  "author": "ActLedger contributors",
+  "keywords": ["actledger", "receipts", "ledger", "audit", "ed25519"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GEON-tt/ActLedger.git",
+    "directory": "packages/core"
+  },
+  "bugs": { "url": "https://github.com/GEON-tt/ActLedger/issues" },
+  "homepage": "https://github.com/GEON-tt/ActLedger/tree/main/packages/core#readme",
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "publishConfig": { "access": "public" },
+  "dependencies": { "yaml": "^2.6.1", "zod": "^3.23.8" }
+}

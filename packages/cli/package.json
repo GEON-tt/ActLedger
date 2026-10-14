@@ -1,0 +1,25 @@
+{
+  "name": "@actledger/cli",
+  "version": "0.1.0",
+  "description": "ActLedger CLI: init a local ledger, approve tasks, export and verify receipts",
+  "license": "Apache-2.0",
+  "author": "ActLedger contributors",
+  "keywords": ["actledger", "cli", "receipts", "verify", "ledger"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GEON-tt/ActLedger.git",
+    "directory": "packages/cli"
+  },
+  "bugs": { "url": "https://github.com/GEON-tt/ActLedger/issues" },
+  "homepage": "https://github.com/GEON-tt/ActLedger/tree/main/packages/cli#readme",
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "bin": { "actledger": "./dist/main.js" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "publishConfig": { "access": "public" },
+  "dependencies": { "@actledger/core": "workspace:*" }
+}

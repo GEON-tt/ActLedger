@@ -1,0 +1,108 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4          # 读取根 package.json 的 packageManager
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck (tsc)
+        run: pnpm typecheck
+      - name: Unit and integration tests (source, no dist)
+        run: pnpm test
+      - name: Build packages (tsc -> dist)
+        run: pnpm build
+      - name: Test vectors (vitest)
+        run: pnpm exec vitest run packages/core/test/vectors.test.ts packages/core/test/canonical.test.ts packages/core/test/states.test.ts
+        env:
+          NODE_OPTIONS: --disable-warning=ExperimentalWarning
+      - name: Test vectors (built CLI verify)
+        env:
+          NODE_OPTIONS: --disable-warning=ExperimentalWarning
+        run: |
+          node packages/cli/dist/main.js verify spec/test-vectors/receipts-chain-0.2.jsonl \
+            --keys spec/test-vectors/keys.json --secrets spec/test-vectors/secrets-0.2.jsonl
+          node packages/cli/dist/main.js verify spec/test-vectors/receipts-chain-0.1.jsonl \
+            --keys spec/test-vectors/keys.json
+      - name: Examples end-to-end (export + verify)
+        run: pnpm exec vitest run examples
+        env:
+          NODE_OPTIONS: --disable-warning=ExperimentalWarning
+
+  python:
+    name: python ${{ matrix.python }} (${{ matrix.extras }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.10"
+            extras: "test"
+          - python: "3.12"
+            extras: "test,langgraph"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install node deps (tsx for rpc and parity)
+        run: pnpm install --frozen-lockfile
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: python/pyproject.toml
+      - name: Install (venv + pip)
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e "./python[${{ matrix.extras }}]"
+      - name: pytest
+        working-directory: python
+        env:
+          ACTLEDGER_REQUIRE_NODE: "1"
+          ACTLEDGER_REQUIRE_LANGGRAPH: ${{ contains(matrix.extras, 'langgraph') && '1' || '0' }}
+          NODE_OPTIONS: --disable-warning=ExperimentalWarning
+        run: ../.venv/bin/python -m pytest -q
+      - name: Python CLI verify vectors
+        run: |
+          .venv/bin/python -m actledger verify spec/test-vectors/receipts-chain-0.2.jsonl \
+            --keys spec/test-vectors/keys.json --secrets spec/test-vectors/secrets-0.2.jsonl
+          .venv/bin/python -m actledger verify spec/test-vectors/receipts-chain-0.1.jsonl \
+            --keys spec/test-vectors/keys.json
+
+  pack:
+    name: pack and install check
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Pack, install tarballs, run init/verify/proxy --help
+        run: pnpm pack:check

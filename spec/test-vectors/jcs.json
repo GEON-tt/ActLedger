@@ -1,0 +1,9 @@
+[
+  { "value": {}, "jcs": "{}" },
+  { "value": [], "jcs": "[]" },
+  { "value": null, "jcs": "null" },
+  { "value": { "b": 1, "a": 2 }, "jcs": "{\"a\":2,\"b\":1}" },
+  { "value": ["c", { "b": true, "a": null }], "jcs": "[\"c\",{\"a\":null,\"b\":true}]" },
+  { "value": { "a": 2, "é": 1 }, "jcs": "{\"a\":2,\"é\":1}" },
+  { "value": "a\"b", "jcs": "\"a\\\"b\"" }
+]

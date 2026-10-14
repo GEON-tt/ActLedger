@@ -1,0 +1,55 @@
+name: Bug report (缺陷报告)
+description: Report a defect (报告一个缺陷)
+title: "bug: "
+body:
+  - type: textarea
+    id: version
+    attributes:
+      label: Version (版本)
+      description: "`@actledger/*` version and Node version (`@actledger/*` 版本和 Node 版本)"
+      placeholder: "@actledger/core 0.1.0, Node 22.13"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package (包)
+      options:
+        - core
+        - sdk
+        - cli
+        - mcp-proxy
+        - python
+        - spec
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce (复现步骤)
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result (期望结果)
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result (实际结果)
+    validations:
+      required: true
+  - type: textarea
+    id: receipt
+    attributes:
+      label: Related receipt excerpt (相关回执片段)
+      description: Strip secrets first. Do not paste salt, raw intent, raw payload, or keys (先去掉 secrets。不要贴 salt、意图原文、载荷原文或密钥).
+  - type: checkboxes
+    id: not-security
+    attributes:
+      label: Confirmation (确认)
+      options:
+        - label: I confirm this is not a security vulnerability. Use private vulnerability reporting in SECURITY.md (我确认这不是安全漏洞。安全问题见 SECURITY.md，请私下报告).
+          required: true

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability (安全漏洞)
+    url: https://github.com/GEON-tt/ActLedger/security/advisories/new
+    about: Do not open a public issue. Use GitHub private vulnerability reporting (安全问题不要开公开 issue，请私下报告). See SECURITY.md.

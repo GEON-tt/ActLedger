@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "receipt.json",
+  "title": "actledger receipt",
+  "oneOf": [{ "$ref": "#/$defs/v01" }, { "$ref": "#/$defs/v02" }],
+  "$defs": {
+    "hmac": { "type": "string", "pattern": "^hmac-sha256:[0-9a-f]{64}$" },
+    "sha": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "actor": {
+      "type": "object",
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "enum": ["agent", "user", "policy", "system"] },
+        "id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "sig": {
+      "type": "object",
+      "required": ["alg", "kid", "value"],
+      "properties": {
+        "alg": { "const": "Ed25519" },
+        "kid": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "transition": {
+      "type": ["object", "null"],
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": ["string", "null"] },
+        "to": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "reasons": {
+      "enum": [
+        "rejected_by_user",
+        "denied_by_policy",
+        "draft_only",
+        "approval_timeout",
+        "claim_deadline",
+        "execution_timeout",
+        "revoked",
+        "reconciled_not_executed"
+      ]
+    },
+    "v01": {
+      "type": "object",
+      "required": ["v", "id", "app_id", "seq", "prev_hash", "task_id", "transition", "actor", "body", "evidence", "issued_at", "hash", "sig"],
+      "properties": {
+        "v": { "const": "actledger.receipt/0.1" },
+        "id": { "type": "string" },
+        "app_id": { "type": "string" },
+        "seq": { "type": "integer", "minimum": 1 },
+        "prev_hash": { "type": "string" },
+        "task_id": { "type": ["string", "null"] },
+        "transition": { "$ref": "#/$defs/transition" },
+        "actor": { "$ref": "#/$defs/actor" },
+        "body": { "type": "object" },
+        "evidence": { "type": "array" },
+        "issued_at": { "type": "string" },
+        "hash": { "type": "string" },
+        "sig": { "$ref": "#/$defs/sig" }
+      },
+      "additionalProperties": false
+    },
+    "v02": {
+      "type": "object",
+      "required": ["v", "id", "app_id", "seq", "prev_hash", "task_id", "transition", "actor", "body", "evidence", "issued_at", "hash", "sig"],
+      "properties": {
+        "v": { "const": "actledger.receipt/0.2" },
+        "id": { "type": "string" },
+        "app_id": { "type": "string" },
+        "seq": { "type": "integer", "minimum": 1 },
+        "prev_hash": { "$ref": "#/$defs/sha" },
+        "task_id": { "type": ["string", "null"] },
+        "transition": { "$ref": "#/$defs/transition" },
+        "actor": { "$ref": "#/$defs/actor" },
+        "body": {
+          "type": "object",
+          "properties": {
+            "initiator": {
+              "type": "object",
+              "properties": {
+                "principal_id": { "type": "string" },
+                "agent_id": { "type": ["string", "null"] },
+                "intent_commit": { "$ref": "#/$defs/hmac" }
+              },
+              "not": { "required": ["intent"] }
+            },
+            "error": {
+              "type": "object",
+              "required": ["code", "message_commit"],
+              "properties": {
+                "code": { "type": "string", "pattern": "^[a-z0-9_.]{1,64}$" },
+                "message_commit": { "$ref": "#/$defs/hmac" },
+                "retryable": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            },
+            "payload_hash": { "$ref": "#/$defs/hmac" },
+            "approved_payload_hash": { "$ref": "#/$defs/hmac" },
+            "executed_hash": { "$ref": "#/$defs/hmac" },
+            "note_commit": { "$ref": "#/$defs/hmac" },
+            "description_commit": { "$ref": "#/$defs/hmac" },
+            "reason": { "$ref": "#/$defs/reasons" },
+            "approval": {
+              "type": "object",
+              "properties": {
+                "presented_hash": { "$ref": "#/$defs/hmac" },
+                "edited_payload_hash": { "$ref": "#/$defs/hmac" }
+              }
+            }
+          },
+          "not": {
+            "anyOf": [
+              { "required": ["note"] },
+              { "required": ["description"] },
+              { "required": ["result"] }
+            ]
+          }
+        },
+        "evidence": { "type": "array" },
+        "issued_at": { "type": "string" },
+        "hash": { "$ref": "#/$defs/sha" },
+        "sig": { "$ref": "#/$defs/sig" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

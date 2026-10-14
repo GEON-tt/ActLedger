@@ -1,0 +1,12 @@
+{
+  "name": "@actledger/example-mcp-proxy-email",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@actledger/mcp-proxy": "workspace:*",
+    "@actledger/sdk": "workspace:*",
+    "@cursor/sdk": "^1.0.37",
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  }
+}

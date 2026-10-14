@@ -1,0 +1,36 @@
+{
+  "name": "@actledger/mcp-proxy",
+  "version": "0.1.0",
+  "description": "ActLedger MCP proxy: approval and signed receipts in front of an upstream MCP server",
+  "license": "Apache-2.0",
+  "author": "ActLedger contributors",
+  "keywords": ["actledger", "mcp", "proxy", "approval", "agent"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GEON-tt/ActLedger.git",
+    "directory": "packages/mcp-proxy"
+  },
+  "bugs": { "url": "https://github.com/GEON-tt/ActLedger/issues" },
+  "homepage": "https://github.com/GEON-tt/ActLedger/tree/main/packages/mcp-proxy#readme",
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "bin": { "actledger-mcp-proxy": "./dist/main.js" },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "publishConfig": { "access": "public" },
+  "dependencies": {
+    "@actledger/core": "workspace:*",
+    "@actledger/sdk": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "yaml": "^2.6.1",
+    "zod": "^3.25.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "prepared": ["approved", "pending_approval", "rejected", "drafted"],
+  "pending_approval": ["approved", "rejected", "expired", "revoked"],
+  "approved": ["executing", "revoked", "expired"],
+  "executing": ["executed", "failed", "unknown"],
+  "unknown": ["executed", "failed"],
+  "executed": [],
+  "failed": [],
+  "rejected": [],
+  "drafted": [],
+  "expired": [],
+  "revoked": []
+}

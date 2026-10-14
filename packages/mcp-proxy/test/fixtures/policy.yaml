@@ -1,0 +1,26 @@
+version: 1
+defaults:
+  unknown_action: require_approval
+  content_mode: strict
+  approval: { channels: [cli], timeout: 15m, allow_edit: true, min_assurance: app_asserted }
+  claim_deadline: 24h
+  execution_timeout: 15m
+coverage:
+  - { action: "email.*", mode: recorded, via: cli-demo }
+actions:
+  demo.echo: { level: write }
+  email.send: { level: send, blast_radius: others, reversible: false }
+  danger.delete: { level: delete, reversible: false }
+  demo.boom: { level: write }
+  demo.rpc_fail: { level: write }
+  demo.slow: { level: write }
+rules:
+  - { id: echo-allow, match: { action: demo.echo }, effect: allow }
+  - { id: boom-allow, match: { action: demo.boom }, effect: allow }
+  - { id: rpc-allow, match: { action: demo.rpc_fail }, effect: allow }
+  - { id: slow-allow, match: { action: demo.slow }, effect: allow, execution_timeout: 1s }
+  - { id: delete-deny, match: { action: danger.delete }, effect: deny }
+  - id: email-approve
+    match: { action: email.send }
+    effect: require_approval
+    approval: { min_assurance: app_asserted }

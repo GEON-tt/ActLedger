@@ -1,0 +1,9 @@
+{
+  "name": "@actledger/example-email",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@actledger/sdk": "workspace:*",
+    "@cursor/sdk": "^1.0.37"
+  }
+}

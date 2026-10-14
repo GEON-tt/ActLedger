@@ -1,0 +1,29 @@
+version: 1
+name: fixture
+ledger: .
+principal: local-user
+upstream:
+  command: node
+  args: ["fake-upstream.ts"]
+  cwd: .
+  env_passthrough: [FAKE_UPSTREAM_LOG]
+approval:
+  wait_ms: 300
+tools:
+  echo:
+    action: demo.echo
+  send_email:
+    action: email.send
+    content:
+      field: body
+      content_type: text/plain
+  delete_all:
+    action: danger.delete
+  boom:
+    action: demo.boom
+  rpc_fail:
+    action: demo.rpc_fail
+  slow:
+    action: demo.slow
+  schema_miss:
+    action: demo.echo

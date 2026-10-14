@@ -1,0 +1,31 @@
+{
+  "name": "@actledger/sdk",
+  "version": "0.1.0",
+  "description": "ActLedger SDK: request, wait, claim, and complete tasks on a local ledger",
+  "license": "Apache-2.0",
+  "author": "ActLedger contributors",
+  "keywords": ["actledger", "sdk", "agent", "approval", "ledger"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GEON-tt/ActLedger.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": { "url": "https://github.com/GEON-tt/ActLedger/issues" },
+  "homepage": "https://github.com/GEON-tt/ActLedger/tree/main/packages/sdk#readme",
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./webhook": { "types": "./dist/webhook.d.ts", "import": "./dist/webhook.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "publishConfig": { "access": "public" },
+  "dependencies": { "@actledger/core": "workspace:*" }
+}

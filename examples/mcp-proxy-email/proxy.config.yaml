@@ -1,0 +1,25 @@
+version: 1
+name: mail
+ledger: .actledger
+principal: local-user
+agent_id: mcp-proxy:mail
+
+upstream:
+  command: node
+  args:
+    - ../../node_modules/tsx/dist/cli.mjs
+    - fake-mail-server.ts
+  cwd: .
+  env_passthrough: [MAIL_OUTBOX]
+
+approval:
+  wait_ms: 3000
+
+tools:
+  send_email:
+    action: email.send
+    content:
+      field: body
+      content_type: text/plain
+  list_inbox:
+    action: email.read

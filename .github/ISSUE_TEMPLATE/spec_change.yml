@@ -1,0 +1,42 @@
+name: Spec change (规范变更)
+description: Propose a specification change (规范变更提案)
+title: "spec: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A formal proposal is a pull request under `spec/rfcs/`, open for discussion for at least 7 days (正式提案要走 `spec/rfcs/` PR，并公开讨论至少 7 天).
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation (动机)
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Affected spec files (影响的 spec 文件)
+    validations:
+      required: true
+  - type: dropdown
+    id: hash
+    attributes:
+      label: Does this change the hash or signature input? (是否改变哈希或签名输入)
+      options:
+        - "No (否)"
+        - "Yes (是)"
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility (兼容性)
+      description: Whether older versions remain verifiable (旧版本 verify 是否仍可用)
+    validations:
+      required: true
+  - type: textarea
+    id: vectors
+    attributes:
+      label: Test vector plan (测试向量计划)
+    validations:
+      required: true
