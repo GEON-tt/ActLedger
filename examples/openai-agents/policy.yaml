@@ -1,0 +1,21 @@
+version: 1
+defaults:
+  unknown_action: require_approval
+  content_mode: strict
+  approval:
+    channels: [cli, web]
+    timeout: 15m
+    allow_edit: true
+    min_assurance: app_asserted
+coverage:
+  - action: tool.*
+    mode: recorded
+    via: openai-agents
+actions:
+  tool.send_email:
+    level: send
+rules:
+  - id: send-approve
+    match:
+      action: tool.send_email
+    effect: require_approval

@@ -71,6 +71,8 @@ pnpm actledger verify receipts.jsonl --keys .actledger/keys.json
 
 没有专门适配器的框架可以用工具闸门：工具调用前调 `before`，返回后调 `after`。它是 recorded 接入，强制路径仍然是 MCP 代理。详见 [docs/zh-CN/tool-gate.md](docs/zh-CN/tool-gate.md)。
 
+Claude Agent SDK 和 OpenAI Agents SDK 有基于同一个闸门的适配器，同样是 recorded 接入。[docs/zh-CN/integrations.md](docs/zh-CN/integrations.md) 对比了工具闸门、两个适配器和 MCP 代理。
+
 需要本地审批页面和签名 webhook 时运行 `actledger serve`，它只绑定 127.0.0.1。详见 [docs/zh-CN/approval.md](docs/zh-CN/approval.md)。
 
 ## TypeScript SDK
@@ -139,6 +141,14 @@ MCP 代理的邮件示例：
 ```bash
 pnpm exec tsx examples/mcp-proxy-email/run.ts
 ```
+
+`actledger serve` 的 webhook 接收端，不需要 API key。步骤见 [examples/webhook-receiver](examples/webhook-receiver)：
+
+```bash
+ACTLEDGER_WEBHOOK_SECRET=dev-secret pnpm exec tsx examples/webhook-receiver/run.ts
+```
+
+适配器示例：[examples/claude-agent](examples/claude-agent) 需要 `ANTHROPIC_API_KEY`，[examples/openai-agents](examples/openai-agents) 需要 `OPENAI_API_KEY`。没有 key 时打印跳过说明并以 0 退出。不需要 key 的测试是 `packages/claude-agent-sdk/test/adapter.test.ts` 和 `packages/openai-agents/test/adapter.test.ts`。
 
 `examples/*/run-agent.ts` 会调用 Cursor SDK。运行前把 `.env.example` 复制为 `.env` 并填写 `CURSOR_API_KEY`。不要提交 `.env`。
 

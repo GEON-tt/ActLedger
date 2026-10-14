@@ -1,0 +1,8 @@
+public_url: http://127.0.0.1:4319
+channels:
+  - name: local-receiver
+    type: webhook
+    url: http://127.0.0.1:8787/hook
+    secret_env: ACTLEDGER_WEBHOOK_SECRET
+    events: [task.pending_approval, task.approved, task.rejected]
+    include_payload: false

@@ -87,6 +87,8 @@ const event = verifyWebhook(
 );
 ```
 
+A runnable receiver that prints approve_url is in [examples/webhook-receiver](../../examples/webhook-receiver).
+
 `data` carries `task_id`, `state`, `action` (`type`, `level`, `resource`), `payload_hash`, `intent_commit`, `task_created_at`, `approve_url`, and `detail_url`. `approve_url` is a signed link only for `task.pending_approval` when the task allows `webhook_link`; otherwise it is `null`. `detail_url` always requires a session. Human decisions add `decided_by: "user"`. `include_payload: true` adds `data.payload` and `data.intent`, or `null` if they cannot be decrypted.
 
 Delivery is at most four attempts (the first try plus three retries). The waits are `retryBaseMs * 2^(n-1)` (1s, 2s, 4s by default). Each attempt times out after 10 seconds. 2xx succeeds. Network errors, timeouts, 5xx, and 429 retry. Other 4xx fail immediately. 3xx is a failure and is not followed.

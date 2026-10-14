@@ -2,7 +2,35 @@
 
 # 框架集成
 
-把工具闸门挂到 agent 框架上的适配器。它们都是只记录，不强制。见[保证边界](guarantees.md)。
+ActLedger 有四种方式挡在工具调用前面。其中三种跑在 agent 进程里，是记录式（recorded）接入。MCP 代理跑在进程外面，对它暴露的工具是强制式（enforced）。见[保证边界](guarantees.md)。
+
+## 选择接入方式
+
+| 方式 | 包 | 挂在哪里 | 闸门模式 | 待审批的调用怎么等 | 强度 |
+| --- | --- | --- | --- | --- | --- |
+| 通用工具闸门 | `@actledger/sdk` 的 `createToolGate`，Python `actledger.gate.ToolGate` | 你的代码在工具前调 `before`，返回后调 `after` | `wait` 或 `defer` | `wait` 在 `before` 里阻塞，直到有决定或 `timeoutMs` 到期。`defer` 返回 `pending`，之后调 `resume(taskId)` | recorded |
+| Claude Agent SDK | `@actledger/claude-agent-sdk`，Python `actledger.claude_agent` | `canUseTool`、`PostToolUse`、`PostToolUseFailure` | 只能 `wait` | `canUseTool` 阻塞到有决定或闸门超时，超时后拒绝 | recorded |
+| OpenAI Agents SDK | `@actledger/openai-agents`，Python `actledger.openai_agents` | `needsApproval` 加 execute 包装 | 只能 `defer` | run 以 SDK 原生 interruption 停下。`resolveInterruptions` 读账本，然后你再调一次 `run` | recorded |
+| MCP 代理 | `@actledger/mcp-proxy` | MCP 客户端和上游服务器之间的 stdio 代理，拦每个 `tools/call` | 不经过工具闸门 | 调用返回 pending 任务。之后的 `check_task` 负责 claim 并转发 | 对代理暴露的工具是 enforced |
+
+四种方式共用同一个账本、策略和回执。审批都在 agent 进程外：`actledger approve`、`actledger serve` 或签名 webhook 链接。见[审批](approval.md)。
+
+### 记录式
+
+通用闸门和两个适配器都跑在 agent 进程里。经过它们的调用走状态机，可以审批、可以校验。模型仍然可以用 shell、HTTP 客户端或浏览器访问同一个服务。没包住的工具，或框架不问就放行的工具（Claude 的 `allowedTools`、OpenAI 从 `mcpServers` 来的工具），不会进账本。各适配器自己的缺口见下面对应小节。
+
+### 强制式
+
+MCP 代理持有到上游服务器的唯一连接，暴露出来的工具在账本 claim 之前无法执行。暴露的工具按 coverage `mode: enforced`、`via: mcp-proxy` 声明。不经过代理的路径仍然在保证范围外，网络和凭证要你自己隔离。见 [MCP 代理](mcp-proxy.md)。
+
+### 怎么选
+
+- 没有适配器的框架，或你自己的循环：用通用闸门。见[工具闸门](tool-gate.md)。
+- Claude Agent SDK 或 OpenAI Agents SDK：用下面对应的适配器。
+- 来自 MCP 服务器的工具：让服务器经 MCP 代理启动，框架里配置代理命令。OpenAI 适配器包不到的 MCP 工具也由此覆盖。
+- 适配器和代理可以在同一个账本目录上同时使用。
+
+可运行示例：[webhook 接收端](../../examples/webhook-receiver)、[Claude Agent SDK](../../examples/claude-agent)、[OpenAI Agents SDK](../../examples/openai-agents)、[MCP 代理](../../examples/mcp-proxy-email)。
 
 ## Claude Agent SDK
 

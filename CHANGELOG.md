@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **Integration guide and examples**
+
+  `docs/en/integrations.md` and `docs/zh-CN/integrations.md` compare the tool gate, the Claude Agent SDK adapter, the OpenAI Agents SDK adapter, and the MCP proxy, and say which are recorded and which is enforced. `examples/webhook-receiver` verifies `actledger serve` webhooks with `verifyWebhook` and prints the signed approve link, with no API key. `examples/claude-agent` and `examples/openai-agents` show the adapter wiring against a real model; without `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` they exit with a skip message and are not part of `pnpm test`.
+
 - **OpenAI Agents SDK adapter**
 
   `@actledger/openai-agents` and `actledger.openai_agents` (extra `actledger[openai-agents]`) mount a defer-mode tool gate on the OpenAI Agents SDK. `needsApproval` asks the ledger; a pending task becomes a native interruption. `resolveInterruptions` reads the ledger and calls the SDK's `state.approve` or `state.reject`, so the run continues or the model gets the deny reason. The execute wrapper claims the task right before the tool runs and completes or fails it. Approval still happens out of process. This is recorded integration: unwrapped tools and MCP server tools never reach the ledger.
@@ -32,7 +36,7 @@ Not published to npm or PyPI.
 
 - **Buildable packages**
 
-  The four npm packages build from this repository. GitHub Actions runs typecheck, tests, the Python job, and `pnpm pack:check`. `LICENSE`, `CONTRIBUTING`, `SECURITY`, and `spec/` describe how to build, report issues, and check receipts.
+  The six npm packages build from this repository. GitHub Actions runs typecheck, tests, the Python job, and `pnpm pack:check`. `LICENSE`, `CONTRIBUTING`, `SECURITY`, and `spec/` describe how to build, report issues, and check receipts.
 
 - **Python SDK**
 

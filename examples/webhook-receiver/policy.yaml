@@ -1,0 +1,29 @@
+version: 1
+defaults:
+  unknown_action: require_approval
+  timezone: UTC
+  content_mode: strict
+  approval:
+    channels: [cli, web, webhook_link]
+    timeout: 15m
+    allow_edit: true
+    min_assurance: app_asserted
+  claim_deadline: 24h
+  execution_timeout: 15m
+
+coverage:
+  - action: email.*
+    mode: recorded
+    via: webhook-demo
+
+actions:
+  email.send:
+    level: send
+    blast_radius: others
+    reversible: false
+
+rules:
+  - id: email-approve
+    match:
+      action: email.send
+    effect: require_approval

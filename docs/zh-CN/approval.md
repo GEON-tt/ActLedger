@@ -87,6 +87,8 @@ const event = verifyWebhook(
 );
 ```
 
+一个会打印 approve_url 的可运行接收端见 [examples/webhook-receiver](../../examples/webhook-receiver)。
+
 `data` 包含 `task_id`、`state`、`action`（`type`、`level`、`resource`）、`payload_hash`、`intent_commit`、`task_created_at`、`approve_url`、`detail_url`。只有 `task.pending_approval` 且任务允许 `webhook_link` 时，`approve_url` 才是签名链接，否则为 `null`。`detail_url` 始终需要会话。人工决定会加上 `decided_by: "user"`。`include_payload: true` 时额外带上 `data.payload` 和 `data.intent`；解密失败则为 `null`。
 
 一次投递最多 4 次（首次加 3 次重试）。等待时间为 `retryBaseMs * 2^(n-1)`（默认 1 秒、2 秒、4 秒）。每次尝试 10 秒超时。2xx 成功。网络错误、超时、5xx 和 429 会重试。其他 4xx 立即失败。3xx 视为失败，不跟随重定向。

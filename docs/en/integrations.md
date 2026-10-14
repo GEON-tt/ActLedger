@@ -2,7 +2,35 @@
 
 # Integrations
 
-Adapters that mount a ToolGate on an agent framework. All of them are recorded integrations, not enforced. See [guarantees](guarantees.md).
+ActLedger can sit in front of a tool call in four ways. Three of them run inside the agent process and are recorded integrations. The MCP proxy runs outside it and is enforced for the tools it exposes. See [guarantees](guarantees.md).
+
+## Choosing an integration
+
+| Style | Package | Where it hooks | Gate mode | How a pending call waits | Strength |
+| --- | --- | --- | --- | --- | --- |
+| Generic tool gate | `@actledger/sdk` `createToolGate`, Python `actledger.gate.ToolGate` | Your code calls `before` ahead of the tool and `after` when it returns | `wait` or `defer` | `wait` blocks in `before` until a decision or `timeoutMs`. `defer` returns `pending`; call `resume(taskId)` later | recorded |
+| Claude Agent SDK | `@actledger/claude-agent-sdk`, Python `actledger.claude_agent` | `canUseTool`, `PostToolUse`, `PostToolUseFailure` | `wait` only | `canUseTool` blocks until a decision or the gate timeout, then denies | recorded |
+| OpenAI Agents SDK | `@actledger/openai-agents`, Python `actledger.openai_agents` | `needsApproval` plus an execute wrapper | `defer` only | The run stops with a native interruption. `resolveInterruptions` reads the ledger, then you call `run` again | recorded |
+| MCP proxy | `@actledger/mcp-proxy` | A stdio proxy between the MCP client and the upstream server. Every `tools/call` | not a tool gate | The call returns the pending task. A later `check_task` claims and forwards | enforced for the tools the proxy exposes |
+
+All four use the same ledger, policy, and receipts. Approval happens out of process in every case: `actledger approve`, `actledger serve`, or a signed webhook link. See [approval](approval.md).
+
+### Recorded
+
+The generic gate and both adapters run in the agent process. Calls that go through them follow the state machine and can be approved and verified. The model can still reach the same service with a shell, an HTTP client, or a browser. A tool that is not wrapped, or that the framework allows without asking (Claude `allowedTools`, OpenAI tools from `mcpServers`), never reaches the ledger. Each adapter section below lists its own gaps.
+
+### Enforced
+
+The MCP proxy holds the only connection to the upstream server, so a call to an exposed tool cannot run until the ledger claims it. Exposed tools are declared with coverage `mode: enforced`, `via: mcp-proxy`. A path that does not go through the proxy is still outside the guarantee. Keep network and credentials isolated yourself. See [MCP proxy](mcp-proxy.md).
+
+### Which one
+
+- A framework with no adapter, or your own loop: the generic gate. See [tool gate](tool-gate.md).
+- Claude Agent SDK or OpenAI Agents SDK: the matching adapter below.
+- Tools that come from an MCP server: start the server through the MCP proxy and point the framework at the proxy command. That also covers MCP tools the OpenAI adapter does not wrap.
+- The adapters and the proxy can run together on one ledger directory.
+
+Runnable examples: [webhook receiver](../../examples/webhook-receiver), [Claude Agent SDK](../../examples/claude-agent), [OpenAI Agents SDK](../../examples/openai-agents), [MCP proxy](../../examples/mcp-proxy-email).
 
 ## Claude Agent SDK
 

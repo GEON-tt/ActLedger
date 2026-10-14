@@ -71,6 +71,8 @@ The hash chain shows that recorded receipts were not altered. It does not show t
 
 Frameworks without an adapter can use the tool gate: call `before` ahead of a tool call and `after` when it returns. It is recorded integration; the MCP proxy stays the enforced path. See [docs/en/tool-gate.md](docs/en/tool-gate.md).
 
+Claude Agent SDK and OpenAI Agents SDK have adapters on the same gate. They are recorded integrations too. [docs/en/integrations.md](docs/en/integrations.md) compares the tool gate, both adapters, and the MCP proxy.
+
 For a local approval page and signed webhooks, run `actledger serve`. It binds 127.0.0.1 only. See [docs/en/approval.md](docs/en/approval.md).
 
 ## TypeScript SDK
@@ -139,6 +141,14 @@ MCP proxy email example:
 ```bash
 pnpm exec tsx examples/mcp-proxy-email/run.ts
 ```
+
+Webhook receiver for `actledger serve`, no API key needed. Steps are in [examples/webhook-receiver](examples/webhook-receiver):
+
+```bash
+ACTLEDGER_WEBHOOK_SECRET=dev-secret pnpm exec tsx examples/webhook-receiver/run.ts
+```
+
+Adapter examples: [examples/claude-agent](examples/claude-agent) needs `ANTHROPIC_API_KEY`, [examples/openai-agents](examples/openai-agents) needs `OPENAI_API_KEY`. Without the key they print a skip message and exit 0. The keyless tests are `packages/claude-agent-sdk/test/adapter.test.ts` and `packages/openai-agents/test/adapter.test.ts`.
 
 `examples/*/run-agent.ts` calls the Cursor SDK. Copy `.env.example` to `.env` and set `CURSOR_API_KEY` before running those scripts. Do not commit `.env`.
 

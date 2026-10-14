@@ -1,0 +1,27 @@
+version: 1
+defaults:
+  unknown_action: require_approval
+  content_mode: strict
+  approval:
+    channels: [cli, web]
+    timeout: 15m
+    allow_edit: true
+    min_assurance: app_asserted
+coverage:
+  - action: tool.mcp__ledger__*
+    mode: recorded
+    via: claude-agent-sdk
+actions:
+  tool.mcp__ledger__echo:
+    level: read
+  tool.mcp__ledger__send_note:
+    level: send
+rules:
+  - id: echo-allow
+    match:
+      action: tool.mcp__ledger__echo
+    effect: allow
+  - id: send-note-approve
+    match:
+      action: tool.mcp__ledger__send_note
+    effect: require_approval
