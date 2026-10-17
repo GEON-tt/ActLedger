@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ActLedger 对话审批 demo</title>
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #1c1915;
+    --muted: #5c564c;
+    --paper: #f6f1e7;
+    --card: #fffdf8;
+    --line: #d9d0c1;
+    --user: #1f4d3a;
+    --user-bg: #e5f2ea;
+    --pending: #8a4b08;
+    --pending-bg: #fff1d6;
+    --error: #8d1d1d;
+    --error-bg: #fde8e4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.5 "Iowan Old Style", Palatino, "Palatino Linotype", "Songti SC", serif;
+  }
+  header, #pending, #log, #composer { padding-left: 1.25rem; padding-right: 1.25rem; }
+  header { padding-top: 1rem; border-bottom: 1px solid var(--line); background: var(--card); }
+  .bar { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: baseline; }
+  h1 { margin: 0; font-size: 1.25rem; font-weight: 650; }
+  #provider, .hint { color: var(--muted); }
+  .hint { margin: 0.35rem 0 0.8rem; font-size: 0.85rem; }
+  a { color: #1d4e89; }
+  #pending {
+    margin: 0.75rem 1.25rem 0;
+    padding: 0.6rem 0.8rem;
+    background: var(--pending-bg);
+    color: var(--pending);
+    border: 1px solid #efd3a4;
+  }
+  #pending div { margin: 0.15rem 0; }
+  #log { padding-top: 1rem; padding-bottom: 6.5rem; }
+  .msg, .row, .card {
+    max-width: 42rem;
+    margin: 0 0 0.7rem;
+    padding: 0.55rem 0.75rem;
+  }
+  .msg.user { margin-left: auto; background: var(--user-bg); color: var(--user); }
+  .msg.agent { background: var(--card); border: 1px solid var(--line); white-space: pre-wrap; }
+  .row.tool { color: var(--muted); font-size: 0.92rem; }
+  .row.pending { background: var(--pending-bg); color: var(--pending); }
+  .row.error { background: var(--error-bg); color: var(--error); }
+  .card { background: var(--card); border: 1px solid var(--line); }
+  .card div { margin: 0.2rem 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82rem; }
+  #composer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    background: var(--card);
+    border-top: 1px solid var(--line);
+  }
+  input {
+    flex: 1;
+    font: inherit;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+  }
+  button {
+    font: inherit;
+    padding: 0.55rem 1rem;
+    border: 0;
+    background: var(--ink);
+    color: var(--paper);
+  }
+  button:disabled { opacity: 0.45; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>ActLedger 对话审批 demo</h1>
+    <p id="provider">provider: …</p>
+    <a id="console" target="_blank" rel="noopener">打开审批台</a>
+  </div>
+  <p class="hint">审批台显示 unauthorized 时，打开终端里打印的 login 链接。</p>
+</header>
+<div id="pending" hidden></div>
+<div id="log"></div>
+<div id="composer">
+  <input id="text" type="text" placeholder="例如：帮我发一条笔记：明天下午三点开会" disabled>
+  <button id="send" type="button" disabled>发送</button>
+</div>
+<script>
+(function () {
+  var providerEl = document.getElementById("provider");
+  var consoleLink = document.getElementById("console");
+  var pendingEl = document.getElementById("pending");
+  var log = document.getElementById("log");
+  var input = document.getElementById("text");
+  var button = document.getElementById("send");
+  var serveOrigin = "";
+  var current = null;
+  var sending = false;
+
+  function append(node) {
+    log.appendChild(node);
+    window.scrollTo(0, document.body.scrollHeight);
+    return node;
+  }
+
+  function link(href, label) {
+    var anchor = document.createElement("a");
+    anchor.textContent = label;
+    anchor.setAttribute("href", href);
+    anchor.setAttribute("target", "_blank");
+    anchor.setAttribute("rel", "noopener");
+    return anchor;
+  }
+
+  function row(className) {
+    var node = document.createElement("div");
+    node.className = className;
+    return append(node);
+  }
+
+  function showError(message) {
+    var node = row("row error");
+    node.textContent = message;
+    current = null;
+  }
+
+  function refreshPending() {
+    if (!serveOrigin) return;
+    fetch("/pending").then(function (res) { return res.json(); }).then(function (data) {
+      pendingEl.replaceChildren();
+      var tasks = data && data.tasks ? data.tasks : [];
+      if (!tasks.length) {
+        pendingEl.hidden = true;
+        return;
+      }
+      pendingEl.hidden = false;
+      for (var i = 0; i < tasks.length; i++) {
+        var task = tasks[i];
+        var line = document.createElement("div");
+        line.appendChild(link(serveOrigin + "/tasks/" + task.id, task.id));
+        line.appendChild(document.createTextNode(" " + task.tool));
+        pendingEl.appendChild(line);
+      }
+    }).catch(function () {});
+  }
+
+  function handleEvent(event) {
+    if (event.type === "turn_start") {
+      current = null;
+      return;
+    }
+    if (event.type === "text") {
+      if (!current) current = row("msg agent");
+      current.textContent += event.text;
+      window.scrollTo(0, document.body.scrollHeight);
+      return;
+    }
+    if (event.type === "tool_call") {
+      var call = row("row tool");
+      call.textContent = "调用 " + event.tool + " " + JSON.stringify(event.args);
+      current = null;
+      return;
+    }
+    if (event.type === "approval_pending") {
+      var waiting = row("row pending");
+      waiting.appendChild(document.createTextNode("等待审批："));
+      waiting.appendChild(link(serveOrigin + "/tasks/" + event.taskId, event.taskId));
+      waiting.appendChild(document.createTextNode("（" + event.tool + "）去审批台批准，或填写理由后拒绝"));
+      current = null;
+      return;
+    }
+    if (event.type === "tool_result") {
+      var result = row("row tool");
+      result.appendChild(document.createTextNode(event.ok ? event.tool + " 完成" : event.tool + " 未执行：" + (event.reason || "")));
+      if (event.taskId) {
+        result.appendChild(document.createTextNode(" "));
+        result.appendChild(link(serveOrigin + "/tasks/" + event.taskId, event.taskId));
+      }
+      if (event.receiptHash) {
+        result.appendChild(document.createTextNode(" "));
+        var hash = document.createElement("code");
+        hash.textContent = "receipt " + event.receiptHash;
+        result.appendChild(hash);
+      }
+      current = null;
+      return;
+    }
+    if (event.type === "turn_summary") {
+      var card = row("card");
+      var tasks = event.tasks || [];
+      for (var i = 0; i < tasks.length; i++) {
+        var task = tasks[i];
+        var line = document.createElement("div");
+        line.appendChild(link(serveOrigin + "/tasks/" + task.taskId, task.taskId));
+        var extra = " " + task.tool + " " + task.state + " 审批人 " + (task.approver || "pending");
+        if (task.channel) extra += " via " + task.channel;
+        if (task.reasonRecorded) extra += " 已记录拒绝理由";
+        extra += " ";
+        line.appendChild(document.createTextNode(extra));
+        var receipt = document.createElement("code");
+        receipt.textContent = "receipt " + (task.receiptHash || "-");
+        line.appendChild(receipt);
+        card.appendChild(line);
+      }
+      var verify = document.createElement("div");
+      verify.textContent = event.verify && event.verify.ok
+        ? "verify: OK (" + event.verify.receipts + " receipts)"
+        : "verify: FAIL " + ((event.verify && event.verify.failure) || "");
+      card.appendChild(verify);
+      current = null;
+      return;
+    }
+    if (event.type === "error") {
+      showError(event.message || "");
+      return;
+    }
+    if (event.type === "done") {
+      sending = false;
+      button.disabled = false;
+      input.focus();
+      refreshPending();
+    }
+  }
+
+  function finishSend() {
+    sending = false;
+    button.disabled = false;
+    input.focus();
+  }
+
+  function send() {
+    if (sending || !serveOrigin) return;
+    var text = input.value.trim();
+    if (!text) return;
+    sending = true;
+    button.disabled = true;
+    input.value = "";
+    current = null;
+    var user = row("msg user");
+    user.textContent = text;
+    fetch("/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text })
+    }).then(function (res) {
+      if (res.status !== 200) {
+        return res.json().catch(function () { return {}; }).then(function (body) {
+          showError(res.status === 409 ? "上一条还在进行" : String((body && body.error) || res.status));
+          finishSend();
+        });
+      }
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (chunk.done) {
+            buffer += decoder.decode();
+            if (buffer.trim()) handleEvent(JSON.parse(buffer));
+            if (sending) finishSend();
+            return;
+          }
+          buffer += decoder.decode(chunk.value, { stream: true });
+          var nl = buffer.indexOf("\n");
+          while (nl >= 0) {
+            var line = buffer.slice(0, nl);
+            buffer = buffer.slice(nl + 1);
+            if (line.trim()) handleEvent(JSON.parse(line));
+            nl = buffer.indexOf("\n");
+          }
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function (error) {
+      showError(error && error.message ? error.message : String(error));
+      finishSend();
+    });
+  }
+
+  button.addEventListener("click", send);
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") send();
+  });
+
+  fetch("/config").then(function (res) { return res.json(); }).then(function (config) {
+    serveOrigin = config.serveOrigin;
+    providerEl.textContent = "provider: " + config.provider;
+    consoleLink.setAttribute("href", serveOrigin + "/");
+    input.disabled = false;
+    button.disabled = false;
+    refreshPending();
+    setInterval(refreshPending, 2000);
+  }).catch(function (error) {
+    showError(error && error.message ? error.message : "config failed");
+  });
+})();
+</script>
+</body>
+</html>

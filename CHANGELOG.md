@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **Chat approval demo**
+
+  `pnpm demo` starts `examples/chat-approval`: a local chat page and the approval console in one process. `list_notes` runs under an allow rule; `send_note` waits inside its tool gate until someone approves it in the console, and only then appends to `out/outbox.jsonl`. After each turn the page shows the task id, approver, receipt hash, and an in-process `verify` result. The default provider is a keyless fake used by `pnpm test`; `ACTLEDGER_DEMO_PROVIDER=cursor|claude|openai` switches to Cursor (grok-4.7), the Claude Agent SDK adapter, or the OpenAI Agents SDK adapter, which are not run in CI. `@actledger/cli` now exports `startServer` from `@actledger/cli/serve`.
+
 - **Re-enterable approval console**
 
   `actledger serve` keeps its login token in `.actledger/serve.token` (mode 0600), so the same login URL works across restarts and repeated logins. `--print-login` prints the URL and exits, `--rotate-token` invalidates old URLs and sessions, and `--one-time-login` keeps the previous one-time token. Posts without an `Origin` header (Safari) are accepted only with `Sec-Fetch-Site: same-origin`/`none` or an allowed `Referer`, plus the CSRF token and session cookie. The page now has pending / recent / all tabs that refresh every 3 seconds from `GET /api/tasks`, a task timeline built from receipts, and requires a reason to reject; `actledger reject` requires `--note`.

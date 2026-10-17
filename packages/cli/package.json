@@ -15,6 +15,10 @@
   "type": "module",
   "engines": { "node": ">=22.13.0" },
   "bin": { "actledger": "./dist/main.js" },
+  "exports": {
+    "./serve": { "types": "./dist/serve/server.d.ts", "import": "./dist/serve/server.js" },
+    "./package.json": "./package.json"
+  },
   "files": ["dist"],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",

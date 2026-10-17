@@ -1,0 +1,30 @@
+version: 1
+defaults:
+  unknown_action: require_approval
+  content_mode: strict
+  approval:
+    channels: [cli, web]
+    timeout: 15m
+    allow_edit: false
+    min_assurance: app_asserted
+coverage:
+  - action: tool.list_notes
+    mode: recorded
+    via: chat-approval
+  - action: tool.send_note
+    mode: recorded
+    via: chat-approval
+actions:
+  tool.list_notes:
+    level: read
+  tool.send_note:
+    level: write
+rules:
+  - id: list-notes-allow
+    match:
+      action: tool.list_notes
+    effect: allow
+  - id: send-note-approve
+    match:
+      action: tool.send_note
+    effect: require_approval

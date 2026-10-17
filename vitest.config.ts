@@ -24,6 +24,7 @@ export default defineConfig({
       { find: /^@actledger\/mcp-proxy$/, replacement: src("./packages/mcp-proxy/src/index.ts") },
       { find: /^@actledger\/claude-agent-sdk$/, replacement: src("./packages/claude-agent-sdk/src/index.ts") },
       { find: /^@actledger\/openai-agents$/, replacement: src("./packages/openai-agents/src/index.ts") },
+      { find: /^@actledger\/cli\/serve$/, replacement: src("./packages/cli/src/serve/server.ts") },
     ],
   },
   test: {
