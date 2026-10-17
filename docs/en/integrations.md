@@ -32,6 +32,8 @@ The MCP proxy holds the only connection to the upstream server, so a call to an 
 
 Runnable examples: [webhook receiver](../../examples/webhook-receiver), [Claude Agent SDK](../../examples/claude-agent), [OpenAI Agents SDK](../../examples/openai-agents), [MCP proxy](../../examples/mcp-proxy-email).
 
+Step-by-step pages: [own loop](scenarios/own-loop.md), [Cursor SDK](scenarios/cursor-sdk.md), [Claude Agent SDK](scenarios/claude-agent-sdk.md), [OpenAI Agents SDK](scenarios/openai-agents.md), [MCP server](scenarios/mcp-server.md), [approval console](scenarios/approval-console.md).
+
 ## Claude Agent SDK
 
 `canUseTool` asks the ledger before a tool runs. `PostToolUse` completes the task. `PostToolUseFailure` fails it. The adapter does not mount `PreToolUse`. A `PreToolUse` hook that returns allow skips `canUseTool`, so the two hooks would interfere.

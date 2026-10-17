@@ -46,7 +46,7 @@ ledger.close()
 
 Public methods are snake_case. Values that cross rpc stay camelCase inside `actledger._wire`.
 
-Approve in another process: `pnpm actledger approve tsk_... --dir .actledger`.
+Approve or reject in another process: `pnpm actledger approve tsk_... --dir .actledger`, or `pnpm actledger reject tsk_... --note <reason> --dir .actledger`.
 
 The rpc command is chosen in this order: an explicit `command=[...]`, then `ACTLEDGER_RPC_COMMAND`, then a development lookup for `packages/cli/src/main.ts` and `node_modules/tsx/dist/cli.mjs`, then `actledger` on `PATH`.
 

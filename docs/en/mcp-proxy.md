@@ -18,6 +18,43 @@ pnpm -s mcp-proxy --ledger .actledger -- npx -y @modelcontextprotocol/server-fil
 
 The proxy also accepts `--upstream "<cmd>"`, `--config <file>`, `--principal`, `--name`, and `--approval-wait`. `--upstream` is split without a shell.
 
+## MCP client config
+
+`--ledger` must be an absolute path.
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "pnpm",
+      "args": [
+        "-s", "--dir", "/absolute/path/to/actledger",
+        "mcp-proxy",
+        "--ledger", "/absolute/path/to/.actledger",
+        "--", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/project"
+      ]
+    }
+  }
+}
+```
+
+After publication:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y", "@actledger/mcp-proxy",
+        "--ledger", "/absolute/path/to/.actledger",
+        "--", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/project"
+      ]
+    }
+  }
+}
+```
+
 ## What happens on a call
 
 1. Tool arguments become `payload.args`. A configured content field can move into `payload.content`.
@@ -57,5 +94,7 @@ tools:
 `tools` maps an upstream tool name to an ActLedger `action`. Unlisted upstream tools still pass through the unknown-action default.
 
 A worked example lives in `examples/mcp-proxy-email/`. Run it with `pnpm exec tsx examples/mcp-proxy-email/run.ts`.
+
+Scenario walkthrough: [An MCP server](scenarios/mcp-server.md).
 
 Normative payload and policy rules are in [the specification](../../spec/payload.md) and [policy.md](../../spec/policy.md). The proxy mapping itself is informative: a verifier does not depend on it.

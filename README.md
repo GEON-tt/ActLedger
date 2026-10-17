@@ -2,218 +2,55 @@
 
 # ActLedger
 
-One command adds approval and verifiable receipts in front of any MCP server.
+ActLedger checks an agent's tool call against a policy, holds it for a person to approve before the tool runs, and writes every step as a signed receipt in a local ledger that `actledger verify` checks offline.
 
-0.1.0 is not published yet. The commands below run from a clone.
+## Try it
+
+0.1.0 is not published yet. From a clone, with Node.js 22.13+ and pnpm 9:
 
 ```bash
 git clone https://github.com/GEON-tt/ActLedger.git
 cd ActLedger
 corepack enable
-pnpm install
-pnpm actledger init
-pnpm -s mcp-proxy --ledger .actledger -- npx -y @modelcontextprotocol/server-filesystem .
+pnpm install && pnpm build && pnpm demo
 ```
 
-`pnpm actledger init` writes an Ed25519 signing key, a data key, `ledger.db`, and `policy.yaml` under `.actledger/`. `pnpm mcp-proxy` wraps the upstream MCP server. Each `tools/call` is allowed, held for approval, or denied according to `policy.yaml`, and the result is appended as a signed receipt.
+The terminal prints the approval console URL with its login link and the chat URL, and opens both in the browser. The default model is the built-in fake model, so no API key is needed. Type `send: standup moved to 3pm`: `send_note` waits until you approve it in the console, then the chat shows the task id, the approver, the receipt hash, and the verify result. `list` runs without approval.
 
-A tool that is not listed under `actions` follows `defaults.unknown_action` (default `require_approval`). If a tool name contains shell, exec, http, fetch, or browser, the proxy warns that the tool can bypass the proxy.
+`ACTLEDGER_DEMO_PROVIDER=cursor|claude|openai` switches to a real model (`CURSOR_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY`). See [examples/chat-approval](examples/chat-approval).
 
-Approve and verify from the same clone:
+## How a call flows
 
-```bash
-pnpm actledger tasks --dir .actledger
-pnpm actledger approve tsk_... --dir .actledger
-pnpm -s actledger export --dir .actledger > receipts.jsonl
-pnpm actledger verify receipts.jsonl --keys .actledger/keys.json
+```mermaid
+flowchart LR
+  agent["Agent"] -->|tool call| gate["ToolGate: policy check"]
+  gate -->|require_approval| console["Approval console: actledger serve"]
+  console -->|approve or reject with a reason| gate
+  gate -->|every transition| receipt["Signed receipt in .actledger/ledger.db"]
 ```
 
-Point an MCP client at this checkout. `--ledger` must be an absolute path:
+## Pick your scenario
 
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "pnpm",
-      "args": [
-        "-s", "--dir", "/absolute/path/to/actledger",
-        "mcp-proxy",
-        "--ledger", "/absolute/path/to/.actledger",
-        "--", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/project"
-      ]
-    }
-  }
-}
-```
+- [Your own agent loop](docs/en/scenarios/own-loop.md): call ToolGate before and after each tool.
+- [Cursor SDK](docs/en/scenarios/cursor-sdk.md): gate `customTools` for a `grok-4.7` agent.
+- [Claude Agent SDK](docs/en/scenarios/claude-agent-sdk.md): `canUseTool` and `PostToolUse` on a ToolGate.
+- [OpenAI Agents SDK](docs/en/scenarios/openai-agents.md): `needsApproval` interruptions on a ToolGate.
+- [An MCP server](docs/en/scenarios/mcp-server.md): put the MCP proxy in front of it; this is the enforced path.
+- [The approval console](docs/en/scenarios/approval-console.md): log in, log in again, rotate the token, and why Approve can be disabled.
 
-## Package map
+## Recorded or enforced
 
-| Package | What it is |
-| --- | --- |
-| [`@actledger/core`](packages/core) | Receipts, payload commitments, the state machine, policy evaluation, verify, and the SQLite ledger |
-| [`@actledger/sdk`](packages/sdk) | TypeScript `Ledger`: request, wait, claim, complete |
-| [`@actledger/cli`](packages/cli) | `actledger` for init, approve, export, and verify |
-| [`@actledger/mcp-proxy`](packages/mcp-proxy) | Stdio MCP proxy in front of an upstream server |
-| [`@actledger/claude-agent-sdk`](packages/claude-agent-sdk) | Claude Agent SDK adapter: `canUseTool` and `PostToolUse` hooks on a ToolGate |
-| [`@actledger/openai-agents`](packages/openai-agents) | OpenAI Agents SDK adapter: `needsApproval` interruptions and execute recording on a ToolGate |
-| [`actledger`](python) (Python) | Receipt verifier, local ledger client over `actledger rpc`, optional LangGraph, Claude Agent SDK, and OpenAI Agents SDK adapters |
+ToolGate and the two adapters run inside the agent process. They are recorded: the model can still reach the same service through a shell, an HTTP client, or a browser. The MCP proxy holds the only connection to the upstream server, so calls to the tools it exposes are enforced. See [guarantees](docs/en/guarantees.md).
 
-Normative field rules are in [spec/README.md](spec/README.md). A short architecture note is in [docs/en/architecture.md](docs/en/architecture.md).
+## Docs
 
-## Guarantee boundary
+[Getting started](docs/en/getting-started.md) · [Approval](docs/en/approval.md) · [Guarantees](docs/en/guarantees.md) · [Integrations](docs/en/integrations.md) · [Tool gate](docs/en/tool-gate.md) · [MCP proxy](docs/en/mcp-proxy.md) · [TypeScript SDK](docs/en/sdk-typescript.md) · [Python SDK](docs/en/sdk-python.md) · [Architecture and packages](docs/en/architecture.md) · [Specification](spec/README.md)
 
-Actions that are not integrated are outside the guarantee. Integrated actions have two strengths. See [docs/en/guarantees.md](docs/en/guarantees.md).
-
-- **Recorded.** The SDK wraps the tool. The ledger can approve and verify those calls. It cannot stop the model from using a shell, a generic HTTP client, or a browser to go around the wrapper.
-- **Enforced.** A proxy or a credential gate sits outside the agent process. The MCP proxy is implemented and is enforced. A credential gate is not implemented.
-
-The hash chain shows that recorded receipts were not altered. It does not show that every action was recorded.
-
-Frameworks without an adapter can use the tool gate: call `before` ahead of a tool call and `after` when it returns. It is recorded integration; the MCP proxy stays the enforced path. See [docs/en/tool-gate.md](docs/en/tool-gate.md).
-
-Claude Agent SDK and OpenAI Agents SDK have adapters on the same gate. They are recorded integrations too. [docs/en/integrations.md](docs/en/integrations.md) compares the tool gate, both adapters, and the MCP proxy.
-
-For a local approval page and signed webhooks, run `actledger serve`. It binds 127.0.0.1 only. See [docs/en/approval.md](docs/en/approval.md).
-
-## TypeScript SDK
-
-From this repository the SDK resolves through the workspace. After publication, `npm install @actledger/sdk`.
-
-```ts
-import { Ledger } from "@actledger/sdk";
-
-const ledger = new Ledger({ mode: "local", dir: ".actledger" });
-const task = await ledger.request({
-  principalId: "u_1",
-  action: { type: "calendar.create" },
-  payload: { action: "calendar.create", args: { title: "standup" } },
-  intent: "create a standup",
-});
-const ready = await task.wait({ timeoutMs: 60_000 });
-if (ready.state === "approved") {
-  const run = await ready.claim();
-  await run.complete({ executedPayload: run.approvedPayload });
-}
-ledger.close();
-```
-
-`claim` moves `approved` to `executing` and can succeed only once. If the process dies after claim, the task becomes `unknown`. It is not treated as "not executed" and retried. More detail: [docs/en/sdk-typescript.md](docs/en/sdk-typescript.md).
-
-## Python
-
-Python 3.10 or newer. Use the stdlib `venv` and `pip`.
-
-```bash
-python3 -m venv python/.venv
-python/.venv/bin/pip install -e "./python[dev]"
-python/.venv/bin/python -m actledger verify receipts.jsonl --keys .actledger/keys.json
-```
-
-`Ledger(mode="local", dir=...)` does not reimplement the engine. It starts the TypeScript CLI `actledger rpc` and speaks one JSON object per line. Approve and reject still run in another process as `actledger approve` / `actledger reject`. In a clone, install Node dependencies with `pnpm install` first so the client can find `tsx`. More detail: [docs/en/sdk-python.md](docs/en/sdk-python.md).
-
-## Requirements
-
-Node.js 22.13 or newer, and pnpm 9. This repo pins the package manager in `package.json`.
-
-## Local development
-
-`init` writes keys and the default policy under `.actledger/`. CLI approval defaults to `app_asserted`. `--assurance channel_verified` or `user_signed` is for local testing. The receipt is marked `simulated`, because the CLI does not perform a real channel identity check.
-
-```bash
-pnpm actledger tasks
-pnpm actledger approve tsk_... --assurance channel_verified
-pnpm -s actledger export > receipts.jsonl
-pnpm actledger verify receipts.jsonl --keys .actledger/keys.json
-pnpm actledger show rcp_...
-```
-
-The email example waits for approval:
-
-```bash
-pnpm actledger init --policy examples/local-email-agent/policy.yaml
-# another terminal
-pnpm exec tsx examples/local-email-agent/run.ts
-pnpm actledger approve tsk_... --assurance channel_verified
-```
-
-MCP proxy email example:
-
-```bash
-pnpm exec tsx examples/mcp-proxy-email/run.ts
-```
-
-Webhook receiver for `actledger serve`, no API key needed. Steps are in [examples/webhook-receiver](examples/webhook-receiver):
-
-```bash
-ACTLEDGER_WEBHOOK_SECRET=dev-secret pnpm exec tsx examples/webhook-receiver/run.ts
-```
-
-Adapter examples: [examples/claude-agent](examples/claude-agent) needs `ANTHROPIC_API_KEY`, [examples/openai-agents](examples/openai-agents) needs `OPENAI_API_KEY`. Without the key they print a skip message and exit 0. The keyless tests are `packages/claude-agent-sdk/test/adapter.test.ts` and `packages/openai-agents/test/adapter.test.ts`.
-
-`examples/*/run-agent.ts` calls the Cursor SDK. Copy `.env.example` to `.env` and set `CURSOR_API_KEY` before running those scripts. Do not commit `.env`.
-
-## Specification
-
-Protocol format: [spec/README.md](spec/README.md). Chinese prose: [spec/zh-CN/README.md](spec/zh-CN/README.md). JSON Schema and `spec/test-vectors/` are shared.
-
-## Tests and build
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-pnpm pack:check
-python/.venv/bin/pytest python -q
-```
-
-`pnpm test` runs the TypeScript source and does not need a build first. `pnpm pack:check` packs the npm tarballs and installs them from the network. Run it on its own.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
-
-Guides: [getting started](docs/en/getting-started.md), [MCP proxy](docs/en/mcp-proxy.md), [TypeScript SDK](docs/en/sdk-typescript.md), [Python SDK](docs/en/sdk-python.md), [tool gate](docs/en/tool-gate.md), [integrations](docs/en/integrations.md), [approval](docs/en/approval.md), [guarantees](docs/en/guarantees.md), [architecture](docs/en/architecture.md).
+Contributing, tests, and builds: [CONTRIBUTING.md](CONTRIBUTING.md). Security: [SECURITY.md](SECURITY.md). [Code of conduct](CODE_OF_CONDUCT.md).
 
 ## Community plugins
 
 No community plugins are listed yet. Open a pull request to add one.
-
-## Not yet
-
-HTTP service, PostgreSQL, a hosted approval page, Feishu or email channels, a credential gate, RFC 3161 anchoring, and a Java SDK. Later work should go through `Store` and the SDK `Transport`.
-
-## After publishing
-
-When 0.1.0 is on npm, the same flow can start without a clone:
-
-```bash
-npx -y @actledger/cli init
-npx -y @actledger/mcp-proxy --ledger .actledger -- npx -y @modelcontextprotocol/server-filesystem .
-```
-
-```bash
-npx @actledger/cli tasks --dir .actledger
-npx @actledger/cli approve tsk_... --dir .actledger
-npx @actledger/cli export --dir .actledger > receipts.jsonl
-npx @actledger/cli verify receipts.jsonl --keys .actledger/keys.json
-```
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y", "@actledger/mcp-proxy",
-        "--ledger", "/absolute/path/to/.actledger",
-        "--", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/project"
-      ]
-    }
-  }
-}
-```
-
-Python, after a PyPI release: `pip install actledger`. This repository is not uploaded yet.
 
 ## License
 

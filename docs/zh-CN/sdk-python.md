@@ -46,7 +46,7 @@ ledger.close()
 
 公共方法是 snake_case。穿过 rpc 的值在 `actledger._wire` 里仍是 camelCase。
 
-在另一个进程里批准：`pnpm actledger approve tsk_... --dir .actledger`。
+在另一个进程里批准或拒绝：`pnpm actledger approve tsk_... --dir .actledger`，或 `pnpm actledger reject tsk_... --note <reason> --dir .actledger`。
 
 rpc 命令按这个顺序选择：显式的 `command=[...]`，然后是 `ACTLEDGER_RPC_COMMAND`，然后在开发期查找 `packages/cli/src/main.ts` 和 `node_modules/tsx/dist/cli.mjs`，最后是 `PATH` 上的 `actledger`。
 

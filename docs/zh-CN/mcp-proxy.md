@@ -18,6 +18,43 @@ pnpm -s mcp-proxy --ledger .actledger -- npx -y @modelcontextprotocol/server-fil
 
 代理还接受 `--upstream "<cmd>"`、`--config <file>`、`--principal`、`--name`、`--approval-wait`。`--upstream` 不经过 shell 拆分。
 
+## MCP 客户端配置
+
+在 MCP 客户端（Cursor、Claude Desktop 等）里指向这份源码。`--ledger` 必须是绝对路径。
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "pnpm",
+      "args": [
+        "-s", "--dir", "/absolute/path/to/actledger",
+        "mcp-proxy",
+        "--ledger", "/absolute/path/to/.actledger",
+        "--", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/project"
+      ]
+    }
+  }
+}
+```
+
+发布之后：
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y", "@actledger/mcp-proxy",
+        "--ledger", "/absolute/path/to/.actledger",
+        "--", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/project"
+      ]
+    }
+  }
+}
+```
+
 ## 一次调用里发生什么
 
 1. 工具参数成为 `payload.args`。配置了内容字段时，它可以挪到 `payload.content`。
@@ -57,5 +94,7 @@ tools:
 `tools` 把上游工具名映射到 ActLedger 的 `action`。没列出的上游工具仍然走未知动作的默认值。
 
 可运行的例子在 `examples/mcp-proxy-email/`。用 `pnpm exec tsx examples/mcp-proxy-email/run.ts` 启动。
+
+场景步骤：[一个 MCP 服务器](scenarios/mcp-server.md)。
 
 载荷和策略的规范性规则在[规范](../../spec/zh-CN/payload.md)和 [policy.md](../../spec/zh-CN/policy.md)。代理自己的映射是资料性的，校验器不依赖它。

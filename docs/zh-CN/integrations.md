@@ -32,6 +32,8 @@ MCP 代理持有到上游服务器的唯一连接，暴露出来的工具在账�
 
 可运行示例：[webhook 接收端](../../examples/webhook-receiver)、[Claude Agent SDK](../../examples/claude-agent)、[OpenAI Agents SDK](../../examples/openai-agents)、[MCP 代理](../../examples/mcp-proxy-email)。
 
+分步页面：[自己的循环](scenarios/own-loop.md)、[Cursor SDK](scenarios/cursor-sdk.md)、[Claude Agent SDK](scenarios/claude-agent-sdk.md)、[OpenAI Agents SDK](scenarios/openai-agents.md)、[MCP 服务器](scenarios/mcp-server.md)、[审批台](scenarios/approval-console.md)。
+
 ## Claude Agent SDK
 
 `canUseTool` 在工具运行前问账本。`PostToolUse` 把任务标成已执行。`PostToolUseFailure` 把任务标成失败。适配器不挂 `PreToolUse`。`PreToolUse` 返回 allow 会跳过 `canUseTool`，两个钩子一起挂会互相干扰。

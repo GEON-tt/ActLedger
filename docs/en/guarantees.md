@@ -2,12 +2,22 @@
 
 # Guarantee boundary
 
-ActLedger is an SDK an agent application integrates on purpose. An action that never goes through ActLedger is outside the guarantee. For an action that does, the strength depends on how it was integrated.
+ActLedger is an SDK an agent application integrates on purpose. An action that never goes through ActLedger is outside the guarantee. For an action that does, the strength depends on where the check runs.
 
-| Mode | How | What you get | What you do not get |
-| --- | --- | --- | --- |
-| `recorded` | SDK or an adapter wraps the tool. The real credential stays in the agent | Calls that go through the ledger follow the state machine. They can be approved and verified. Later edits to those receipts are detectable | The model or the code can skip the wrapped tool, for example with a shell, a generic HTTP client, or a browser |
-| `enforced` | The agent has no path around the ledger. Today that means the MCP proxy. A credential gate that releases a short-lived credential only after `executing` is not built yet | On top of recorded mode, that class of call cannot run until the ledger has claimed it | Any path that does not go through the proxy. The operator has to keep network and credentials isolated |
+| | Recorded | Enforced |
+| --- | --- | --- |
+| Where the check runs | Inside the agent process | Outside it, between the agent and the tool |
+| In this repository | ToolGate, `ledger.guard`, the Claude Agent SDK adapter, the OpenAI Agents SDK adapter | The MCP proxy, for the tools it exposes. A credential gate that releases a short-lived credential only after `executing` is not built yet |
+| Who holds the real connection or credential | The agent | The proxy |
+| What you get | Calls that go through the ledger follow the state machine, can be approved and verified, and later edits to their receipts are detectable | All of recorded mode, and that class of call cannot run until the ledger has claimed it |
+| What you do not get | The model or the code can skip the wrapped tool, for example with a shell, a generic HTTP client, or a browser | Any path that does not go through the proxy. The operator has to keep network and credentials isolated |
+| Coverage on the receipt | Whatever your `coverage` globs declare; an action with no matching glob is recorded | `mode: enforced`, `via: mcp-proxy`, added by the proxy for its exposed tools |
+
+Which one to use:
+
+- You own the agent loop, or the framework has no adapter: [ToolGate](tool-gate.md). Claude Agent SDK or OpenAI Agents SDK: the matching adapter ([integrations](integrations.md)). These are recorded.
+- The tool is an MCP server you do not want the model to call directly: start it through the [MCP proxy](mcp-proxy.md). That is enforced for the tools the proxy exposes.
+- Both can share one ledger directory. Step-by-step pages: [scenarios](scenarios/own-loop.md).
 
 Two limits apply in both modes.
 

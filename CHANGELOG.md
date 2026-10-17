@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **Scenario docs**
+
+  The README now opens with `pnpm demo`, a mermaid diagram of agent → ToolGate → approval console → receipt, and links to six scenario pages in `docs/en/scenarios/` and `docs/zh-CN/scenarios/`: your own loop, Cursor SDK, Claude Agent SDK, OpenAI Agents SDK, an MCP server behind the proxy, and the approval console. The long reference moved into getting started, MCP proxy, and architecture. `guarantees.md` opens with a recorded-versus-enforced table, and `approval.md` describes the token file, list tabs, timeline, and required rejection reason. `packages/cli/test/docs.test.ts` fails on broken relative links in the README and docs and checks that English and Chinese pages have the same headings and link counts.
+
 - **Chat approval demo**
 
   `pnpm demo` starts `examples/chat-approval`: a local chat page and the approval console in one process. `list_notes` runs under an allow rule; `send_note` waits inside its tool gate until someone approves it in the console, and only then appends to `out/outbox.jsonl`. After each turn the page shows the task id, approver, receipt hash, and an in-process `verify` result. The default provider is a keyless fake used by `pnpm test`; `ACTLEDGER_DEMO_PROVIDER=cursor|claude|openai` switches to Cursor (grok-4.7), the Claude Agent SDK adapter, or the OpenAI Agents SDK adapter, which are not run in CI. `@actledger/cli` now exports `startServer` from `@actledger/cli/serve`.

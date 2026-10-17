@@ -2,7 +2,7 @@
 
 # 审批
 
-ActLedger 的审批发生在 agent 外面。这一页说明本地 CLI、回环审批页和签名 webhook。
+ActLedger 的审批发生在 agent 外面。这一页说明本地 CLI、回环审批页和签名 webhook。操作步骤见[审批台场景](scenarios/approval-console.md)。
 
 ## 1. 渠道
 
@@ -20,7 +20,7 @@ ActLedger 的审批发生在 agent 外面。这一页说明本地 CLI、回环�
 
 ## 2. CLI
 
-`actledger approve` 和 `actledger reject` 记录渠道 `cli`。见[入门](getting-started.md)。审批人是任务的 principal。高于 `app_asserted` 的保证，或 `--step-up`，会标成 `simulated`。
+`actledger approve` 和 `actledger reject` 记录渠道 `cli`。见[入门](getting-started.md)。审批人是任务的 principal。高于 `app_asserted` 的保证，或 `--step-up`，会标成 `simulated`。`actledger reject` 必须带 `--note <reason>`（`--reason` 是别名）。
 
 ## 3. 本地页面
 
@@ -30,13 +30,21 @@ actledger serve --dir .actledger --port 4319 --approver <principal>
 
 进程只绑定 `127.0.0.1`，没有参数可以改。它打印源站和登录 URL。token 存在 `.actledger/serve.token`（权限 0600，可用 `--token-file <path>` 指定），重启后仍有效，可以反复登录，每次登录开一个新会话。`actledger serve --print-login` 打印同一个 URL 后退出，不启动服务。`actledger serve --rotate-token` 写入新 token，旧登录 URL 和所有已有会话立即失效，然后启动服务并打印新 URL。`--one-time-login` 保留旧行为：token 只在内存里，只能用一次，不写盘。
 
-Cookie 名是 `actledger_session`，属性为 `HttpOnly`、`SameSite=Strict`、`Path=/`。不设 `Secure`，也不设 `Max-Age`：这个服务在回环上使用明文 HTTP，浏览器对 `http://127.0.0.1` 的 `Secure` cookie 不可靠。它是会话 cookie。服务端在空闲 12 小时或创建后 24 小时过期，以先到者为准。
+token 文件以 0600 权限创建；权限更宽时会收紧并记日志。文件不可读或格式不对时，serve 停下来并报 `invalid token file; run actledger serve --rotate-token`。`--token-file` 的父目录必须已经存在。`--print-login` 需要已经初始化的目录，只把 URL 打到 stdout，并且按 `--port`（默认 4319）拼出 URL，不用 `public_url`。另一个进程做的轮换，会在正在运行的 serve 的下一次请求时生效。`--one-time-login` 不能和 `--token-file`、`--rotate-token` 或 `--print-login` 一起用，`--print-login` 也不能和 `--approver` 一起用。
+
+Cookie 名是 `actledger_session`，属性为 `HttpOnly`、`SameSite=Strict`、`Path=/`。不设 `Secure`，也不设 `Max-Age`：这个服务在回环上使用明文 HTTP，浏览器对 `http://127.0.0.1` 的 `Secure` cookie 不可靠。它是会话 cookie。服务端在空闲 12 小时或创建后 24 小时过期，以先到者为准。轮换 token 也会结束所有会话。登出只结束当前会话，登录 URL 仍然可用。
 
 会话里的 POST 带本会话的 CSRF token。请求带 `Origin` 时，它必须是允许的来源（`http://127.0.0.1:<port>`、`http://localhost:<port>`，或 `public_url` 的 origin）。`Origin` 缺失或为 `null`（部分 Safari 版本）时，只有 `Sec-Fetch-Site` 是 `same-origin` 或 `none`，或 `Referer` 来自允许的来源，才会接受；CSRF token 和 `SameSite=Strict` 会话 cookie 仍然必需。如果带了 `Sec-Fetch-Site`，只能是 `same-origin` 或 `none`。每个请求的 `Host` 必须在允许集合里，否则返回 421。任何 GET 都不会批准或拒绝，打开登录 URL 不需要 `Origin`。
 
-不传 `--approver` 时，页面以 `task.principalId` 审批，和 CLI 一样。这个默认值不是应用名 `local`。传了 `--approver` 就原样交给引擎。只有 principal 相同的任务能批，其余返回 `403 approver_mismatch`。
+页面加载一个同源脚本 `/assets/console.js`。Content-Security-Policy 是 `default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`，`Referrer-Policy` 是 `same-origin`。
 
-页面不能改 payload，不能做 step-up，只能给出 `app_asserted`。任务要求更高保证或 step-up 时，批准按钮禁用。除非渠道本身不允许，拒绝仍然可用。拒绝必须写理由：页面没有理由时返回 `400 reason_required`，`actledger reject` 必须带 `--note`。
+不传 `--approver` 时，页面以 `task.principalId` 审批，和 CLI 一样。这个默认值不是应用名 `local`。传了 `--approver` 就原样交给引擎。只有 principal 相同的任务能批准或拒绝；其余任务的两个按钮都禁用，引擎返回 `403 approver_mismatch`。
+
+页面不能改 payload，不能做 step-up，只能给出 `app_asserted`。任务要求更高保证或 step-up 时，批准按钮禁用。页面会说明原因，并给出 CLI 命令（`actledger approve <id> --assurance <min>` 或 `--step-up`）。更高的保证来自规则的 `approval.min_assurance`，或者动作级别是 `send`、`spend`、`delete` 且规则没有写 `min_assurance` 时抬到 `channel_verified`。除非渠道本身不允许，拒绝仍然可用。拒绝必须写理由：页面没有理由时返回 `400 reason_required`，`actledger reject` 必须带 `--note`。理由超过 2000 个字符时返回 `400 invalid_request`。
+
+列表有三个标签：`pending`（等待批准，最旧的在前）、`recent`（人工决定，最新的在前，最多 50 条）和 `all`（最新的在前，最多 200 条）。页面每 3 秒从 `GET /api/tasks?state=pending|recent|all` 刷新当前标签。这个接口需要会话 cookie，返回 `{tab, now, tasks}`。每个任务有 `id`、`state`、`action`（`type`、`level`、`resource`）、`principalId`、`createdAt`、`updatedAt`、`expiresAt`、`expired`、`decided`、`intent` 和 `args`（`intent` 和 `args` 都截到 120 个字符）。不包含 `content` 和完整 payload。会话结束时，页面会说明，并指向 `actledger serve --print-login`。
+
+任务页有一块 "You are approving"，显示 action、args，以及决定所绑定的 `presented_hash`。规则允许编辑时，页面说明编辑只能用 `actledger approve <id> --edit file.json`。人工决定之后，页面显示审批人、渠道、保证等级、是否 simulated，以及是否记录了理由。时间线来自该任务的回执：requested、pending approval、approved by policy、approved、denied by policy、rejected、drafted、claimed、completed、failed、unknown、expired、revoked。
 
 ## 4. channels.yaml
 

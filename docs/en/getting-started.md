@@ -31,6 +31,7 @@ pnpm actledger tasks
 pnpm actledger approve tsk_...
 pnpm -s actledger export > receipts.jsonl
 pnpm actledger verify receipts.jsonl --keys .actledger/keys.json
+pnpm actledger show rcp_...
 ```
 
 CLI approval defaults to `app_asserted`. `--assurance channel_verified` or `user_signed` is a local test. The receipt is marked `simulated`, because the CLI does not check a real channel identity.
@@ -42,6 +43,37 @@ pnpm -s mcp-proxy --ledger .actledger -- npx -y @modelcontextprotocol/server-fil
 ```
 
 See [mcp-proxy.md](mcp-proxy.md), [sdk-typescript.md](sdk-typescript.md), and [sdk-python.md](sdk-python.md).
+
+## Examples
+
+`pnpm demo` starts the chat and the approval console. The default model is the built-in fake model, so no API key is needed. See [examples/chat-approval](../../examples/chat-approval).
+
+The email example waits for approval:
+
+```bash
+pnpm actledger init --policy examples/local-email-agent/policy.yaml
+# another terminal
+pnpm exec tsx examples/local-email-agent/run.ts
+pnpm actledger approve tsk_... --assurance channel_verified
+```
+
+Run the MCP proxy email example:
+
+```bash
+pnpm exec tsx examples/mcp-proxy-email/run.ts
+```
+
+The webhook receiver for `actledger serve` needs no API key. Steps are in [examples/webhook-receiver](../../examples/webhook-receiver):
+
+```bash
+ACTLEDGER_WEBHOOK_SECRET=dev-secret pnpm exec tsx examples/webhook-receiver/run.ts
+```
+
+Adapter examples: `examples/claude-agent` needs `ANTHROPIC_API_KEY`, and `examples/openai-agents` needs `OPENAI_API_KEY`. Without the key they print a skip message and exit 0. The keyless tests are `packages/claude-agent-sdk/test/adapter.test.ts` and `packages/openai-agents/test/adapter.test.ts`.
+
+`examples/*/run-agent.ts` calls the Cursor SDK. Copy the repository root `.env.example` to `.env` and set `CURSOR_API_KEY` before running those scripts. Do not commit `.env`.
+
+Step-by-step pages by scenario: [scenarios](scenarios/own-loop.md).
 
 ## What a receipt is for
 
@@ -55,5 +87,14 @@ When the packages are on npm:
 npx -y @actledger/cli init
 npx -y @actledger/mcp-proxy --ledger .actledger -- npx -y @modelcontextprotocol/server-filesystem .
 ```
+
+```bash
+npx @actledger/cli tasks --dir .actledger
+npx @actledger/cli approve tsk_... --dir .actledger
+npx @actledger/cli export --dir .actledger > receipts.jsonl
+npx @actledger/cli verify receipts.jsonl --keys .actledger/keys.json
+```
+
+Python, after a PyPI release: `pip install actledger`. This repository is not uploaded yet.
 
 Field-level rules: [the specification](../../spec/README.md). How the pieces fit: [architecture.md](architecture.md).

@@ -2,7 +2,7 @@
 
 # Architecture
 
-0.1.0 is a local ledger. There is no multi-tenant HTTP server, PostgreSQL, or external timestamp anchor. The only approval channel is the local `actledger serve` (127.0.0.1). Hosted services stay behind `Store` on the engine and `Transport` on the SDK.
+0.1.0 is a local ledger. There is no multi-tenant HTTP server, PostgreSQL, or external timestamp anchor. Approval runs locally: `actledger approve`/`reject`, the `actledger serve` page on 127.0.0.1, and signed webhook links. Hosted services stay behind `Store` on the engine and `Transport` on the SDK.
 
 ```mermaid
 flowchart LR
@@ -38,10 +38,26 @@ The full table is [spec/state-machine.md](../../spec/state-machine.md) and [spec
 
 ## Where the check sits
 
-Recorded mode wraps a tool inside the agent. The [MCP proxy](mcp-proxy.md) is enforced mode for the upstream it fronts: it claims the task before it forwards `tools/call`, and it declares `coverage` `enforced` for those tools. Approval still happens outside the agent, today via the CLI.
+Recorded mode wraps a tool inside the agent. The [MCP proxy](mcp-proxy.md) is enforced mode for the upstream it fronts: it claims the task before it forwards `tools/call`, and it declares `coverage` `enforced` for those tools. Approval still happens outside the agent: the CLI, the `actledger serve` page, or a signed webhook link. See [approval](approval.md).
 
 Policy evaluation is first-match. Unknown actions use `defaults.unknown_action`. Assurance ranks are `policy`, then `app_asserted`, `channel_verified`, and `user_signed`. Details: [spec/policy.md](../../spec/policy.md).
 
 ## What verify checks
 
 `actledger verify` recomputes the receipt hash, checks the Ed25519 signature against `keys.json`, walks the chain from the genesis hash, and rebuilds each task's transitions. With a secrets file it recomputes commitments. It does not contact a server. See [guarantees.md](guarantees.md) for what that does not prove.
+
+## Packages
+
+| Package | What it is |
+| --- | --- |
+| [`@actledger/core`](../../packages/core) | Receipts, payload commitments, the state machine, policy evaluation, verify, and the SQLite ledger |
+| [`@actledger/sdk`](../../packages/sdk) | TypeScript `Ledger`: request, wait, claim, complete |
+| [`@actledger/cli`](../../packages/cli) | `actledger` for init, approve, export, and verify |
+| [`@actledger/mcp-proxy`](../../packages/mcp-proxy) | Stdio MCP proxy in front of an upstream server |
+| [`@actledger/claude-agent-sdk`](../../packages/claude-agent-sdk) | Claude Agent SDK adapter: `canUseTool` and `PostToolUse` hooks on a ToolGate |
+| [`@actledger/openai-agents`](../../packages/openai-agents) | OpenAI Agents SDK adapter: `needsApproval` interruptions and execute recording on a ToolGate |
+| [`actledger`](../../python) (Python) | Receipt verifier, local ledger client over `actledger rpc`, optional LangGraph, Claude Agent SDK, and OpenAI Agents SDK adapters |
+
+## Not yet
+
+HTTP service, PostgreSQL, a hosted approval page, Feishu or email channels, a credential gate, RFC 3161 anchoring, and a Java SDK. Later work should go through `Store` and the SDK `Transport`.
