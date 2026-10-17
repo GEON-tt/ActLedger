@@ -15,6 +15,7 @@ function run(args: string[]) {
   return spawnSync(process.execPath, [tsx, cli, ...args], {
     cwd: root,
     encoding: "utf8",
+    timeout: 15_000,
     env: { ...process.env, NODE_OPTIONS: "--disable-warning=ExperimentalWarning" },
   });
 }
@@ -117,5 +118,68 @@ describe("cli", () => {
     const verified = run(["verify", receipts, "--keys", path.join(dir, "keys.json"), "--secrets", secrets]);
     expect(verified.status, verified.stderr).toBe(0);
     expect(verified.stdout).toContain("secrets=");
+  });
+
+  it("requires a note to reject", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "actl-cli-"));
+    dirs.push(dir);
+    initLocalDir(dir);
+    const engine = openLedger({ dir });
+    const created = engine.request({
+      principalId: "u_1",
+      intent: "reply",
+      action: { type: "email.send" },
+      payload: { action: "email.send", args: { to: ["a@b.c"] } },
+    });
+    const before = engine.exportReceipts().length;
+    const id = created.task.id;
+    engine.close();
+    const missing = run(["reject", id, "--dir", dir]);
+    expect(missing.status, missing.stderr).not.toBe(0);
+    expect(missing.stderr).toContain("reason_required");
+    const blank = run(["reject", id, "--dir", dir, "--note", "  "]);
+    expect(blank.status, blank.stderr).not.toBe(0);
+    expect(blank.stderr).toContain("reason_required");
+    const again = openLedger({ dir });
+    expect(again.getTask(id)?.state).toBe("pending_approval");
+    expect(again.exportReceipts().length).toBe(before);
+    again.close();
+    const rejected = run(["reject", id, "--dir", dir, "--note", "no"]);
+    expect(rejected.status, rejected.stderr).toBe(0);
+    const done = openLedger({ dir });
+    expect(done.getTask(id)?.state).toBe("rejected");
+    done.close();
+  });
+
+  it("prints the login URL without starting the server", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "actl-cli-"));
+    dirs.push(dir);
+    initLocalDir(dir);
+    const first = run(["serve", "--print-login", "--dir", dir]);
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toMatch(/^http:\/\/127\.0\.0\.1:4319\/login\?token=[A-Za-z0-9_-]{43}\n$/);
+    expect(fs.statSync(path.join(dir, "serve.token")).mode & 0o777).toBe(0o600);
+    const second = run(["serve", "--print-login", "--dir", dir]);
+    expect(second.status, second.stderr).toBe(0);
+    expect(second.stdout).toBe(first.stdout);
+    const ported = run(["serve", "--print-login", "--dir", dir, "--port", "5001"]);
+    expect(ported.status, ported.stderr).toBe(0);
+    expect(ported.stdout).toMatch(/^http:\/\/127\.0\.0\.1:5001\/login\?token=[A-Za-z0-9_-]{43}\n$/);
+    expect(new URL(ported.stdout.trim()).searchParams.get("token")).toBe(new URL(first.stdout.trim()).searchParams.get("token"));
+    const rotated = run(["serve", "--rotate-token", "--print-login", "--dir", dir]);
+    expect(rotated.status, rotated.stderr).toBe(0);
+    expect(rotated.stdout).not.toBe(first.stdout);
+    expect((JSON.parse(fs.readFileSync(path.join(dir, "serve.token"), "utf8")) as { generation: number }).generation).toBe(2);
+    const mixed = run(["serve", "--print-login", "--one-time-login", "--dir", dir]);
+    expect(mixed.status).not.toBe(0);
+    expect(mixed.stderr).toContain("invalid_request");
+    const approver = run(["serve", "--print-login", "--approver", "u_1", "--dir", dir]);
+    expect(approver.status).not.toBe(0);
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), "actl-cli-"));
+    dirs.push(empty);
+    const missing = run(["serve", "--print-login", "--dir", empty]);
+    expect(missing.status).not.toBe(0);
+    expect(missing.stderr).toContain("not_found");
+    expect(fs.existsSync(path.join(empty, "serve.token"))).toBe(false);
   });
 });

@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **Re-enterable approval console**
+
+  `actledger serve` keeps its login token in `.actledger/serve.token` (mode 0600), so the same login URL works across restarts and repeated logins. `--print-login` prints the URL and exits, `--rotate-token` invalidates old URLs and sessions, and `--one-time-login` keeps the previous one-time token. Posts without an `Origin` header (Safari) are accepted only with `Sec-Fetch-Site: same-origin`/`none` or an allowed `Referer`, plus the CSRF token and session cookie. The page now has pending / recent / all tabs that refresh every 3 seconds from `GET /api/tasks`, a task timeline built from receipts, and requires a reason to reject; `actledger reject` requires `--note`.
+
 - **Integration guide and examples**
 
   `docs/en/integrations.md` and `docs/zh-CN/integrations.md` compare the tool gate, the Claude Agent SDK adapter, the OpenAI Agents SDK adapter, and the MCP proxy, and say which are recorded and which is enforced. `examples/webhook-receiver` verifies `actledger serve` webhooks with `verifyWebhook` and prints the signed approve link, with no API key. `examples/claude-agent` and `examples/openai-agents` show the adapter wiring against a real model; without `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` they exit with a skip message and are not part of `pnpm test`.

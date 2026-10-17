@@ -23,6 +23,10 @@ interface Flags {
   to?: number;
   port?: number;
   approver?: string;
+  tokenFile?: string;
+  printLogin: boolean;
+  rotateToken: boolean;
+  oneTimeLogin: boolean;
   positionals: string[];
 }
 
@@ -33,6 +37,9 @@ function parse(argv: string[]): { command: string; flags: Flags } {
     once: false,
     stepUp: false,
     assurance: "app_asserted",
+    printLogin: false,
+    rotateToken: false,
+    oneTimeLogin: false,
     positionals: [],
   };
   const command = argv[0] ?? "help";
@@ -74,6 +81,14 @@ function parse(argv: string[]): { command: string; flags: Flags } {
       if (!value) throw new LedgerError("invalid_request", "--approver requires a principal", 400);
       flags.approver = value;
     }
+    else if (arg === "--token-file") {
+      const value = next();
+      if (!value) throw new LedgerError("invalid_request", "--token-file requires a path", 400);
+      flags.tokenFile = value;
+    }
+    else if (arg === "--print-login") flags.printLogin = true;
+    else if (arg === "--rotate-token") flags.rotateToken = true;
+    else if (arg === "--one-time-login") flags.oneTimeLogin = true;
     else if (arg === "--help" || arg === "-h") flags.positionals.push("help");
     else if (arg.startsWith("-")) throw new LedgerError("invalid_request", `unknown flag ${arg}`, 400);
     else flags.positionals.push(arg);
@@ -88,13 +103,16 @@ function help(): void {
   actledger dev [--dir] [--once]
   actledger tasks [--dir] [--state] [--json]
   actledger approve <task> [--assurance app_asserted|channel_verified|user_signed] [--edit file] [--step-up]
-  actledger reject <task> [--note text]  (--reason is an alias of --note)
+  actledger reject <task> --note text  (required; --reason is an alias)
   actledger export [--from n] [--to n] [--secrets file]
   actledger verify <receipts.jsonl> --keys <keys.json> [--secrets file] [--json]
   actledger show <receipt>
   actledger rpc [--dir .actledger]   JSON lines on stdin/stdout (used by the Python SDK)
   actledger serve [--dir .actledger] [--port 4319] [--approver <principal>]
+                  [--token-file <path>] [--rotate-token] [--one-time-login]
                     local approval page on 127.0.0.1 and webhook notifier
+  actledger serve --print-login [--dir] [--port] [--token-file] [--rotate-token]
+                    print the login URL from the token file and exit
 
 Local mode records approvals you make in this CLI. An assurance above
 app_asserted, or --step-up, is marked simulated: this CLI does not check
@@ -162,7 +180,25 @@ function main(): void {
     return;
   }
   if (command === "serve") {
-    serveCommand({ dir: flags.dir, port: flags.port ?? 4319, approver: flags.approver }).catch(handleError);
+    if (flags.oneTimeLogin && (flags.tokenFile !== undefined || flags.rotateToken || flags.printLogin)) {
+      throw new LedgerError(
+        "invalid_request",
+        "--one-time-login cannot be combined with --token-file, --rotate-token or --print-login",
+        400,
+      );
+    }
+    if (flags.printLogin && flags.approver) {
+      throw new LedgerError("invalid_request", "--approver has no effect with --print-login", 400);
+    }
+    serveCommand({
+      dir: flags.dir,
+      port: flags.port ?? 4319,
+      approver: flags.approver,
+      tokenFile: flags.tokenFile,
+      printLogin: flags.printLogin,
+      rotateToken: flags.rotateToken,
+      oneTimeLogin: flags.oneTimeLogin,
+    }).catch(handleError);
     return;
   }
   throw new LedgerError("invalid_request", `unknown command ${command}`, 400);

@@ -308,4 +308,62 @@ describe("signed approval links", () => {
     expect(response.body).toContain("channel_not_allowed");
     expect(withLedger(dir, (engine) => engine.getTask(task.id)?.state)).toBe("pending_approval");
   });
+
+  it("requires a reason to reject and does not consume the link", async () => {
+    const { dir, handle } = await boot(policy);
+    const created = createTask(dir);
+    const exp = Math.floor(Date.now() / 1000) + 900;
+    const linkPath = signedPath(dir, created.task, exp);
+    const page = await request(handle.port, "GET", linkPath);
+    const headers = { origin: handle.origin, "content-type": "application/x-www-form-urlencoded" };
+    const denied = await request(handle.port, "POST", `/t/${created.task.id}`, {
+      headers,
+      body: form({
+        sig: field(page.body, "sig"),
+        exp: field(page.body, "exp"),
+        nonce: field(page.body, "nonce"),
+        presented_hash: field(page.body, "presented_hash"),
+        decision: "reject",
+      }),
+    });
+    expect(denied.status).toBe(400);
+    expect(denied.body).toContain("reason_required");
+    expect(withLedger(dir, (engine) => engine.getTask(created.task.id)?.state)).toBe("pending_approval");
+    const again = await request(handle.port, "GET", linkPath);
+    const approved = await request(handle.port, "POST", `/t/${created.task.id}`, {
+      headers,
+      body: form({
+        sig: field(again.body, "sig"),
+        exp: field(again.body, "exp"),
+        nonce: field(again.body, "nonce"),
+        presented_hash: field(again.body, "presented_hash"),
+        decision: "approve",
+      }),
+    });
+    expect(approved.status).toBe(200);
+    expect(withLedger(dir, (engine) => engine.getTask(created.task.id)?.state)).toBe("approved");
+  });
+
+  it("approves a link post with no Origin when Sec-Fetch-Site is same-origin", async () => {
+    const { dir, handle } = await boot(policy);
+    const created = createTask(dir);
+    const exp = Math.floor(Date.now() / 1000) + 900;
+    const page = await request(handle.port, "GET", signedPath(dir, created.task, exp));
+    const approved = await request(handle.port, "POST", `/t/${created.task.id}`, {
+      headers: { "sec-fetch-site": "same-origin", "content-type": "application/x-www-form-urlencoded" },
+      body: form({
+        sig: field(page.body, "sig"),
+        exp: field(page.body, "exp"),
+        nonce: field(page.body, "nonce"),
+        presented_hash: field(page.body, "presented_hash"),
+        decision: "approve",
+      }),
+    });
+    expect(approved.status).toBe(200);
+    const receipt = withLedger(dir, (engine) => {
+      expect(engine.getTask(created.task.id)?.state).toBe("approved");
+      return engine.exportReceipts().find((item) => item.transition?.to === "approved") as Receipt;
+    });
+    expect((receipt.body.approval as { channel?: string }).channel).toBe("webhook_link");
+  });
 });

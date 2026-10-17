@@ -301,6 +301,13 @@ export class SqliteStore implements LedgerStore {
     return rows.map((row) => JSON.parse(String(asRow(row)?.receipt_json)) as Receipt);
   }
 
+  listTaskReceipts(appId: string, taskId: string): Receipt[] {
+    const rows = this.db
+      .prepare(`SELECT receipt_json FROM receipts WHERE app_id = ? AND task_id = ? ORDER BY seq ASC`)
+      .all(appId, taskId);
+    return rows.map((row) => JSON.parse(String(asRow(row)?.receipt_json)) as Receipt);
+  }
+
   getReceipt(appId: string, id: string): Receipt | null {
     const row = asRow(
       this.db.prepare("SELECT receipt_json FROM receipts WHERE app_id = ? AND id = ?").get(appId, id),

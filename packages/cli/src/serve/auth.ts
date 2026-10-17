@@ -1,4 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
+import type { LoginCredential } from "./token.js";
 
 const IDLE_MS = 12 * 60 * 60 * 1000;
 const ABSOLUTE_MS = 24 * 60 * 60 * 1000;
@@ -31,29 +32,45 @@ export function clearSessionCookie(): string {
   return "actledger_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0";
 }
 
+export interface LoginSource {
+  readonly oneTime: boolean;
+  current(): LoginCredential;
+}
+
 interface Session {
   csrf: string;
   createdAt: number;
   lastSeen: number;
+  loginGeneration: number;
+  loginDigest: string;
 }
 
 export class SessionStore {
-  readonly loginToken: string;
   private loginUsed = false;
   private readonly sessions = new Map<string, Session>();
 
-  constructor(private readonly now: () => Date) {
-    this.loginToken = randomBytes(32).toString("base64url");
-  }
+  constructor(
+    private readonly now: () => Date,
+    private readonly source: LoginSource,
+  ) {}
 
   login(token: string): { id: string; csrf: string } | null {
-    const matches = safeEqual(this.loginToken, token);
-    if (!matches || this.loginUsed) return null;
-    this.loginUsed = true;
+    const cred = this.source.current();
+    if (!safeEqual(cred.token, token)) return null;
+    if (this.source.oneTime) {
+      if (this.loginUsed) return null;
+      this.loginUsed = true;
+    }
     const id = randomBytes(32).toString("base64url");
     const csrf = randomBytes(32).toString("base64url");
     const ts = this.now().getTime();
-    this.sessions.set(id, { csrf, createdAt: ts, lastSeen: ts });
+    this.sessions.set(id, {
+      csrf,
+      createdAt: ts,
+      lastSeen: ts,
+      loginGeneration: cred.generation,
+      loginDigest: cred.digest,
+    });
     return { id, csrf };
   }
 
@@ -63,6 +80,11 @@ export class SessionStore {
     if (!row) return null;
     const ts = this.now().getTime();
     if (ts - row.createdAt >= ABSOLUTE_MS || ts - row.lastSeen >= IDLE_MS) {
+      this.sessions.delete(id);
+      return null;
+    }
+    const cred = this.source.current();
+    if (row.loginGeneration !== cred.generation || row.loginDigest !== cred.digest) {
       this.sessions.delete(id);
       return null;
     }
@@ -104,4 +126,42 @@ export function fetchSiteAllowed(header: string | string[] | undefined): boolean
   const value = Array.isArray(header) ? header[0] : header;
   if (!value) return true;
   return value === "same-origin" || value === "none";
+}
+
+export type BrowserVerdict = "ok" | "origin_rejected" | "fetch_site_rejected";
+
+export function checkBrowserPost(
+  headers: { origin?: string | string[]; "sec-fetch-site"?: string | string[]; referer?: string | string[] },
+  origins: Set<string>,
+): BrowserVerdict {
+  const origin = headerValue(headers.origin);
+  const site = headerValue(headers["sec-fetch-site"]);
+  const referer = headerValue(headers.referer);
+  const siteAllowed = site === "same-origin" || site === "none";
+  const siteRejected = Boolean(site) && !siteAllowed;
+
+  if (origin && origin !== "null") {
+    if (!origins.has(origin.toLowerCase())) return "origin_rejected";
+    if (siteRejected) return "fetch_site_rejected";
+    return "ok";
+  }
+
+  if (siteRejected) return "fetch_site_rejected";
+  if (referer) {
+    let refererOrigin = "";
+    try {
+      refererOrigin = new URL(referer).origin.toLowerCase();
+    } catch {
+      return "origin_rejected";
+    }
+    if (!origins.has(refererOrigin)) return "origin_rejected";
+  }
+  if (siteAllowed || Boolean(referer)) return "ok";
+  return "origin_rejected";
+}
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw && raw.length > 0 ? raw : undefined;
 }

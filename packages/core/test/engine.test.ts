@@ -1403,3 +1403,26 @@ describe("approval channels", () => {
     expect(effectiveChannels({} as never)).toEqual(["cli"]);
   });
 });
+
+describe("task receipts", () => {
+  it("returns one task's receipts in chain order and does not write", () => {
+    const { engine } = setup();
+    try {
+      const approved = requestEmail(engine, "receipts-a");
+      const pending = requestEmail(engine, "receipts-b");
+      approveSend(engine, approved.task.id, approved.task.payloadHash);
+      const head = engine.chainHead();
+      const count = engine.exportReceipts().length;
+      const listed = engine.listTaskReceipts(approved.task.id);
+      expect(listed).toEqual(engine.exportReceipts().filter((receipt) => receipt.task_id === approved.task.id));
+      expect(listed.map((receipt) => receipt.seq)).toEqual([...listed.map((receipt) => receipt.seq)].sort((a, b) => a - b));
+      expect(listed.map((receipt) => receipt.transition?.to)).toEqual(["prepared", "pending_approval", "approved"]);
+      expect(engine.listTaskReceipts("tsk_missing")).toEqual([]);
+      expect(engine.chainHead()).toEqual(head);
+      expect(engine.exportReceipts().length).toBe(count);
+      expect(engine.getTask(pending.task.id)?.state).toBe("pending_approval");
+    } finally {
+      engine.close();
+    }
+  });
+});

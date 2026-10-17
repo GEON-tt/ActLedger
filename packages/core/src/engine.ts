@@ -617,6 +617,11 @@ export class LedgerEngine {
     return this.store.listReceipts(this.appId, fromSeq, toSeq);
   }
 
+  /** Receipts for one task in chain order, exactly as stored. Unknown ids return an empty list. */
+  listTaskReceipts(taskId: string): Receipt[] {
+    return this.store.listTaskReceipts(this.appId, taskId);
+  }
+
   exportSecrets(fromSeq?: number, toSeq?: number): SecretsEntry[] {
     const receipts = this.store.listReceipts(this.appId, fromSeq, toSeq);
     const taskIds: string[] = [];

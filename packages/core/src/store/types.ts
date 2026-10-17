@@ -96,6 +96,7 @@ export interface LedgerStore {
   allocateSeq(appId: string): { seq: number; prevHash: string };
   insertReceipt(receipt: Receipt): void;
   listReceipts(appId: string, fromSeq?: number, toSeq?: number): Receipt[];
+  listTaskReceipts(appId: string, taskId: string): Receipt[];
   getReceipt(appId: string, id: string): Receipt | null;
   chainHead(appId: string): { seq: number; hash: string } | null;
   insertTask(task: TaskRecord): void;

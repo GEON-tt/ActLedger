@@ -7,21 +7,23 @@ import {
   LedgerError,
   openLedger,
   type LedgerEngine,
+  type Receipt,
   type TaskView,
 } from "@actledger/core";
 import {
   allowedHosts,
   allowedOrigins,
+  checkBrowserPost,
   clearSessionCookie,
-  fetchSiteAllowed,
   hostAllowed,
-  originAllowed,
   parseCookies,
   safeEqual,
   sessionCookie,
   SessionStore,
+  type LoginSource,
 } from "./auth.js";
 import { isLoopbackUrl, loadChannelsConfig } from "./channels.js";
+import { CONSOLE_JS } from "./console-js.js";
 import {
   renderDetail,
   renderError,
@@ -29,11 +31,22 @@ import {
   renderLinkStatus,
   renderList,
   renderResult,
+  type DecisionInfo,
   type LinkPage,
+  type ListRow,
   type TaskPage,
+  type TimelineRow,
 } from "./html.js";
 import { LinkNonces, loadOrCreateLinkKey, UsedLinks, verifyLink } from "./links.js";
 import { defaultHttpPost, Notifier, type HttpPost } from "./notifier.js";
+import {
+  defaultTokenFile,
+  FileLoginSource,
+  loadOrCreateLoginToken,
+  loginUrl,
+  MemoryLoginSource,
+  rotateLoginToken,
+} from "./token.js";
 
 const TASK_ID = /^tsk_[0-9A-Za-z_]{1,64}$/;
 const BODY_LIMIT = 16 * 1024;
@@ -42,10 +55,12 @@ const SECURITY_HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
-  "Referrer-Policy": "no-referrer",
+  "Referrer-Policy": "same-origin",
   "Content-Security-Policy":
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 };
+
+type TaskTab = "pending" | "recent" | "all";
 
 export interface ServeOptions {
   dir: string;
@@ -58,12 +73,18 @@ export interface ServeOptions {
   sleep?: (ms: number) => Promise<void>;
   env?: NodeJS.ProcessEnv;
   log?: (line: string) => void;
+  loginMode?: "persistent" | "one-time";
+  tokenFile?: string;
+  rotateToken?: boolean;
 }
 
 export interface ServeHandle {
   port: number;
   origin: string;
   loginUrl: string;
+  loginMode: "persistent" | "one-time";
+  tokenFile: string | null;
+  tokenGeneration: number | null;
   publicUrl: string;
   notifier: Notifier;
   close(): Promise<void>;
@@ -89,10 +110,28 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
   let server: http.Server | undefined;
   let notifier: Notifier | undefined;
   try {
+    const loginMode = opts.loginMode ?? "persistent";
+    if (loginMode === "one-time" && opts.rotateToken) {
+      throw new LedgerError("invalid_request", "--rotate-token cannot be combined with --one-time-login", 400);
+    }
+    let source: LoginSource;
+    let tokenFile: string | null = null;
+    let tokenGeneration: number | null = null;
+    if (loginMode === "one-time") {
+      source = new MemoryLoginSource();
+    } else {
+      const file = opts.tokenFile ? path.resolve(opts.tokenFile) : defaultTokenFile(dir);
+      const record = opts.rotateToken
+        ? rotateLoginToken(file, { now, log })
+        : loadOrCreateLoginToken(file, { now, log });
+      source = new FileLoginSource(file, record, log);
+      tokenFile = file;
+      tokenGeneration = record.generation;
+    }
     const config = loadChannelsConfig(dir, { env });
     const linkKey = loadOrCreateLinkKey(dir);
     const used = UsedLinks.open(path.join(dir, "link-used.jsonl"), Math.floor(now().getTime() / 1000));
-    const sessions = new SessionStore(now);
+    const sessions = new SessionStore(now, source);
     const nonces = new LinkNonces();
     let hosts = new Set<string>();
     let origins = new Set<string>();
@@ -228,7 +267,14 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
         throw new HttpFail(405, "method_not_allowed", "method not allowed", true);
       }
 
-      if (pathname === "/" || pathname === "/logout" || taskMatch || actionMatch) {
+      if (
+        pathname === "/" ||
+        pathname === "/logout" ||
+        pathname === "/api/tasks" ||
+        pathname === "/assets/console.js" ||
+        taskMatch ||
+        actionMatch
+      ) {
         const id = actionMatch?.[1] ?? taskMatch?.[1];
         if (id !== undefined && !TASK_ID.test(id)) {
           if (method === "POST") req.resume();
@@ -240,8 +286,27 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
           throw new HttpFail(401, "unauthorized", "unauthorized", true);
         }
         if (pathname === "/" && method === "GET") {
-          sendHtml(res, 200, renderList(listRows(), session.csrf));
+          const tab = taskTab(url.searchParams.get("tab"));
+          if (!tab) throw new HttpFail(400, "invalid_request", "tab must be pending, recent or all");
+          sendHtml(res, 200, renderList({ tab, rows: tabTasks(tab).map(listRow), csrf: session.csrf }));
           return;
+        }
+        if (pathname === "/api/tasks" && method === "GET") {
+          const state = taskTab(url.searchParams.get("state"));
+          if (!state) {
+            sendJson(res, 400, { error: "invalid_request", message: "state must be pending, recent or all" });
+            return;
+          }
+          sendJson(res, 200, { tab: state, now: formatTimestamp(now()), tasks: tabTasks(state).map(taskJson) });
+          return;
+        }
+        if (pathname === "/api/tasks") throw new HttpFail(405, "method_not_allowed", "method not allowed", true);
+        if (pathname === "/assets/console.js" && method === "GET") {
+          send(res, 200, CONSOLE_JS, "text/javascript; charset=utf-8");
+          return;
+        }
+        if (pathname === "/assets/console.js") {
+          throw new HttpFail(405, "method_not_allowed", "method not allowed", true);
         }
         if (pathname === "/logout" && method === "POST") {
           await logout(req, session.csrf, sessionId, res);
@@ -267,22 +332,64 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
       throw new HttpFail(404, "not_found", "not found", true);
     }
 
-    function listRows() {
-      return engine.listTasks({ state: "pending_approval" }).map((task) => ({
+    function tabTasks(tab: TaskTab): TaskView[] {
+      if (tab === "pending") return engine.listTasks({ state: "pending_approval" });
+      if (tab === "recent") {
+        return engine
+          .listTasks()
+          .filter((task) => task.approvalId !== null)
+          .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0))
+          .slice(0, 50);
+      }
+      return engine.listTasks().reverse().slice(0, 200);
+    }
+
+    function listRow(task: TaskView): ListRow {
+      return {
         id: task.id,
         type: task.action.type,
         level: task.action.level ?? "",
+        state: task.state,
         principalId: task.principalId,
         createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
         expiresAt: expiresLabel(task.expiresAt, now()),
         intent: clip(shownIntent(engine, task.id, "(unavailable)"), 120),
-      }));
+        args: shownArgs(engine, task.id, false),
+      };
+    }
+
+    function taskJson(task: TaskView) {
+      const row = listRow(task);
+      return {
+        id: row.id,
+        state: row.state,
+        action: { type: task.action.type, level: task.action.level, resource: task.action.resource },
+        principalId: row.principalId,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        expiresAt: task.expiresAt,
+        expired: isExpired(task.expiresAt, now()),
+        decided: task.approvalId !== null,
+        intent: row.intent,
+        args: row.args,
+      };
     }
 
     function detailPage(id: string, csrf: string): TaskPage {
       const task = engine.getTask(id);
       if (!task) throw new HttpFail(404, "not_found", "task not found");
       const gate = approvalGate(task, opts.approver);
+      let rows: TimelineRow[] = [];
+      let decided: DecisionInfo | null = null;
+      try {
+        const receipts = engine.listTaskReceipts(task.id);
+        rows = timeline(receipts);
+        decided = decisionInfo(receipts);
+      } catch {
+        rows = [];
+        decided = null;
+      }
       return {
         id: task.id,
         state: task.state,
@@ -304,6 +411,12 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
         approveDisabled: gate.approveDisabled,
         rejectDisabled: gate.rejectDisabled,
         csrf,
+        args: shownArgs(engine, task.id, true),
+        allowEdit: task.decision.allowEdit,
+        approvedPayloadEdited: task.approvedPayloadHash !== null && task.approvedPayloadHash !== task.payloadHash,
+        approvedPayloadHash: task.approvedPayloadHash ?? "",
+        decisionInfo: decided,
+        timeline: rows,
       };
     }
 
@@ -348,16 +461,16 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
       const exp = parseExp(form.get("exp"));
       assertLink(task, sig, exp);
       assertBrowser(req, origins);
-      if (!nonces.take(form.get("nonce") ?? "", task.id, sig, now().getTime())) {
-        throw new HttpFail(403, "nonce_failed", "nonce failed");
-      }
       const presented = form.get("presented_hash") ?? "";
       if (!presented) throw new HttpFail(400, "invalid_request", "missing presented_hash");
       const decision = form.get("decision");
       if (decision !== "approve" && decision !== "reject") {
         throw new HttpFail(400, "invalid_request", "decision must be approve or reject");
       }
-      const note = decision === "reject" ? optionalNote(form) : undefined;
+      const note = decision === "reject" ? requiredNote(form) : undefined;
+      if (!nonces.take(form.get("nonce") ?? "", task.id, sig, now().getTime())) {
+        throw new HttpFail(403, "nonce_failed", "nonce failed");
+      }
       if (!used.consume(sig, task.id, exp as number, formatTimestamp(now()))) {
         throw new HttpFail(410, "link_used", "this link has already been used");
       }
@@ -412,6 +525,7 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
       assertCsrf(form, csrf);
       const presented = form.get("presented_hash") ?? "";
       if (!presented) throw new HttpFail(400, "invalid_request", "missing presented_hash");
+      const note = action === "reject" ? requiredNote(form) : undefined;
       const task = engine.getTask(id);
       if (!task) throw new LedgerError("not_found", `task ${id} not found`, 404);
       const approver = opts.approver ?? task.principalId;
@@ -431,7 +545,7 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
           channel: "web",
           assurance: "app_asserted",
           presentedHash: presented,
-          note: optionalNote(form),
+          note,
           simulated: false,
         });
       }
@@ -454,7 +568,10 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
     return {
       port: boundPort,
       origin,
-      loginUrl: `${origin}/login?token=${sessions.loginToken}`,
+      loginUrl: loginUrl(origin, source.current().token),
+      loginMode,
+      tokenFile,
+      tokenGeneration,
       publicUrl,
       notifier: liveNotifier,
       close,
@@ -470,6 +587,12 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
   }
 }
 
+function taskTab(value: string | null): TaskTab | null {
+  if (value === null) return "pending";
+  if (value === "pending" || value === "recent" || value === "all") return value;
+  return null;
+}
+
 function approvalGate(
   task: TaskView,
   approver?: string,
@@ -483,11 +606,16 @@ function approvalGate(
     rejectDisabled = true;
   }
   if (task.decision.minAssurance && assuranceRank(task.decision.minAssurance) > assuranceRank("app_asserted")) {
-    hints.push(`需要 ${task.decision.minAssurance}，网页只能给 \`app_asserted\`；可以拒绝，批准请用 CLI`);
+    const min = task.decision.minAssurance;
+    hints.push(
+      `Approve is disabled: this action needs ${min} assurance, and this page can only record app_asserted. Approve it with the CLI (actledger approve ${task.id} --assurance ${min}) or a verified channel. You can still reject it here with a reason.`,
+    );
     approveDisabled = true;
   }
   if (task.decision.stepUp) {
-    hints.push("需要 step-up，网页不支持");
+    hints.push(
+      `Approve is disabled: this action needs step-up ${task.decision.stepUp}, which this page cannot collect. Use the CLI (actledger approve ${task.id} --step-up).`,
+    );
     approveDisabled = true;
   }
   if (approver && approver !== task.principalId) {
@@ -514,32 +642,143 @@ function shownPayload(engine: LedgerEngine, id: string): string {
   }
 }
 
+function shownArgs(engine: LedgerEngine, id: string, pretty: boolean): string {
+  try {
+    const args = engine.taskPayload(id).args;
+    const text = pretty ? JSON.stringify(args, null, 2) : JSON.stringify(args);
+    if (typeof text !== "string") return "(unavailable)";
+    return pretty ? text : clip(text, 120);
+  } catch {
+    return "(unavailable)";
+  }
+}
+
 function clip(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value;
 }
 
-function expiresLabel(expiresAt: string | null, now: Date): string {
+function isExpired(expiresAt: string | null, at: Date): boolean {
+  if (!expiresAt) return false;
+  return at.getTime() > new Date(expiresAt).getTime();
+}
+
+function expiresLabel(expiresAt: string | null, at: Date): string {
   if (!expiresAt) return "";
-  if (now.getTime() > new Date(expiresAt).getTime()) return `${expiresAt} 已超时`;
+  if (isExpired(expiresAt, at)) return `${expiresAt} 已超时`;
   return expiresAt;
 }
 
-function assertBrowser(req: http.IncomingMessage, origins: Set<string>): void {
-  if (!originAllowed(req.headers.origin, origins)) throw new HttpFail(403, "origin_rejected", "origin rejected");
-  if (!fetchSiteAllowed(req.headers["sec-fetch-site"])) {
-    throw new HttpFail(403, "fetch_site_rejected", "cross-site request rejected");
+function timeline(receipts: Receipt[]): TimelineRow[] {
+  const rows: TimelineRow[] = [];
+  for (const receipt of receipts) {
+    if (!receipt.transition) continue;
+    const to = receipt.transition.to;
+    const from = receipt.transition.from;
+    const body = receipt.body;
+    let label = to;
+    let detail = "";
+    if (to === "prepared" && from === null) {
+      label = "requested";
+    } else if (to === "pending_approval") {
+      label = "pending approval";
+      detail = `rule ${policyRule(body)}`;
+    } else if (to === "approved" && receipt.actor.type === "policy") {
+      label = "approved by policy";
+      detail = `rule ${receipt.actor.id}`;
+    } else if (to === "approved") {
+      label = "approved";
+      detail = approvalDetail(body);
+    } else if (to === "rejected" && receipt.actor.type === "policy") {
+      label = "denied by policy";
+      detail = `reason ${textField(body.reason) ?? ""}`;
+    } else if (to === "rejected") {
+      label = "rejected";
+      detail = approvalDetail(body);
+      if (typeof body.note_commit === "string") detail += " · reason recorded";
+    } else if (to === "drafted") {
+      label = "drafted";
+    } else if (to === "executing") {
+      label = "claimed";
+    } else if (to === "executed") {
+      label = "completed";
+    } else if (to === "failed") {
+      label = "failed";
+      const code = textField(recordField(body.error)?.code);
+      if (code) detail = `error ${code}`;
+    } else if (to === "unknown" || to === "expired" || to === "revoked") {
+      label = to;
+      const reason = textField(body.reason);
+      if (reason) detail = `reason ${reason}`;
+    }
+    rows.push({
+      at: receipt.issued_at,
+      seq: receipt.seq,
+      label,
+      actor: `${receipt.actor.type}:${receipt.actor.id}`,
+      detail,
+    });
   }
+  return rows;
+}
+
+function decisionInfo(receipts: Receipt[]): DecisionInfo | null {
+  for (let i = receipts.length - 1; i >= 0; i--) {
+    const receipt = receipts[i];
+    if (!receipt?.transition) continue;
+    const to = receipt.transition.to;
+    if (to !== "approved" && to !== "rejected") continue;
+    if (receipt.actor.type !== "user") continue;
+    const approval = recordField(receipt.body.approval);
+    if (!approval) continue;
+    const auth = recordField(approval.auth);
+    return {
+      decision: to === "approved" ? "approved" : "rejected",
+      approver: textField(approval.approver) ?? "",
+      channel: textField(approval.channel) ?? "",
+      assurance: textField(approval.assurance) ?? "",
+      simulated: auth?.simulated === true,
+      decidedAt: textField(approval.decided_at) ?? "",
+      noteRecorded: typeof receipt.body.note_commit === "string",
+    };
+  }
+  return null;
+}
+
+function approvalDetail(body: Record<string, unknown>): string {
+  const approval = recordField(body.approval);
+  if (!approval) return "";
+  const auth = recordField(approval.auth);
+  let detail = `by ${textField(approval.approver) ?? ""} · channel ${textField(approval.channel) ?? ""} · assurance ${textField(approval.assurance) ?? ""}`;
+  if (auth?.simulated === true) detail += " · simulated";
+  return detail;
+}
+
+function policyRule(body: Record<string, unknown>): string {
+  return textField(recordField(body.policy)?.rule_id) ?? "";
+}
+
+function textField(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function recordField(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function assertBrowser(req: http.IncomingMessage, origins: Set<string>): void {
+  const verdict = checkBrowserPost(req.headers, origins);
+  if (verdict === "origin_rejected") throw new HttpFail(403, "origin_rejected", "origin rejected");
+  if (verdict === "fetch_site_rejected") throw new HttpFail(403, "fetch_site_rejected", "cross-site request rejected");
 }
 
 function assertCsrf(form: Map<string, string>, csrf: string): void {
   if (!safeEqual(csrf, form.get("csrf") ?? "")) throw new HttpFail(403, "csrf_failed", "csrf failed");
 }
 
-function optionalNote(form: Map<string, string>): string | undefined {
-  const raw = form.get("reason");
-  if (raw === undefined) return undefined;
-  const note = raw.trim();
-  if (!note) return undefined;
+function requiredNote(form: Map<string, string>): string {
+  const note = (form.get("reason") ?? "").trim();
+  if (!note) throw new HttpFail(400, "reason_required", "a rejection needs a reason");
   if (note.length > 2000) throw new HttpFail(400, "invalid_request", "reason is longer than 2000 characters");
   return note;
 }
@@ -616,6 +855,10 @@ function sendText(res: http.ServerResponse, status: number, body: string): void 
 
 function sendHtml(res: http.ServerResponse, status: number, body: string): void {
   send(res, status, body, "text/html; charset=utf-8");
+}
+
+function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
+  send(res, status, JSON.stringify(body), "application/json; charset=utf-8");
 }
 
 function send(

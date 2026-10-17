@@ -42,6 +42,8 @@ export function approveCommand(opts: {
 }
 
 export function rejectCommand(opts: { dir: string; id: string; note?: string }): void {
+  const note = opts.note?.trim() ?? "";
+  if (!note) throw new LedgerError("reason_required", "reject requires --note <reason>", 400);
   const engine = openLedger({ dir: opts.dir });
   try {
     const task = engine.getTask(opts.id);
@@ -51,7 +53,7 @@ export function rejectCommand(opts: { dir: string; id: string; note?: string }):
       channel: "cli",
       assurance: "app_asserted",
       presentedHash: task.payloadHash,
-      note: opts.note,
+      note,
       simulated: false,
     });
     process.stdout.write(`${result.task.id} ${result.task.state}\n`);

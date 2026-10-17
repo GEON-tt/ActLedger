@@ -28,15 +28,15 @@ ActLedger 的审批发生在 agent 外面。这一页说明本地 CLI、回环�
 actledger serve --dir .actledger --port 4319 --approver <principal>
 ```
 
-进程只绑定 `127.0.0.1`，没有参数可以改。它打印源站和一次性登录 URL。打开该 URL 会种下会话 cookie 并作废 token。同一个 URL 之后返回 401。要新 token，重启 `serve`。重启也会丢掉全部会话。
+进程只绑定 `127.0.0.1`，没有参数可以改。它打印源站和登录 URL。token 存在 `.actledger/serve.token`（权限 0600，可用 `--token-file <path>` 指定），重启后仍有效，可以反复登录，每次登录开一个新会话。`actledger serve --print-login` 打印同一个 URL 后退出，不启动服务。`actledger serve --rotate-token` 写入新 token，旧登录 URL 和所有已有会话立即失效，然后启动服务并打印新 URL。`--one-time-login` 保留旧行为：token 只在内存里，只能用一次，不写盘。
 
 Cookie 名是 `actledger_session`，属性为 `HttpOnly`、`SameSite=Strict`、`Path=/`。不设 `Secure`，也不设 `Max-Age`：这个服务在回环上使用明文 HTTP，浏览器对 `http://127.0.0.1` 的 `Secure` cookie 不可靠。它是会话 cookie。服务端在空闲 12 小时或创建后 24 小时过期，以先到者为准。
 
-会话里的 POST 带本会话的 CSRF token，并且 `Origin` 必须是允许的来源（`http://127.0.0.1:<port>`、`http://localhost:<port>`，或 `public_url` 的 origin）。如果带了 `Sec-Fetch-Site`，只能是 `same-origin` 或 `none`。每个请求的 `Host` 必须在允许集合里，否则返回 421。任何 GET 都不会批准或拒绝。
+会话里的 POST 带本会话的 CSRF token。请求带 `Origin` 时，它必须是允许的来源（`http://127.0.0.1:<port>`、`http://localhost:<port>`，或 `public_url` 的 origin）。`Origin` 缺失或为 `null`（部分 Safari 版本）时，只有 `Sec-Fetch-Site` 是 `same-origin` 或 `none`，或 `Referer` 来自允许的来源，才会接受；CSRF token 和 `SameSite=Strict` 会话 cookie 仍然必需。如果带了 `Sec-Fetch-Site`，只能是 `same-origin` 或 `none`。每个请求的 `Host` 必须在允许集合里，否则返回 421。任何 GET 都不会批准或拒绝，打开登录 URL 不需要 `Origin`。
 
 不传 `--approver` 时，页面以 `task.principalId` 审批，和 CLI 一样。这个默认值不是应用名 `local`。传了 `--approver` 就原样交给引擎。只有 principal 相同的任务能批，其余返回 `403 approver_mismatch`。
 
-页面不能改 payload，不能做 step-up，只能给出 `app_asserted`。任务要求更高保证或 step-up 时，批准按钮禁用。除非渠道本身不允许，拒绝仍然可用。
+页面不能改 payload，不能做 step-up，只能给出 `app_asserted`。任务要求更高保证或 step-up 时，批准按钮禁用。除非渠道本身不允许，拒绝仍然可用。拒绝必须写理由：页面没有理由时返回 `400 reason_required`，`actledger reject` 必须带 `--note`。
 
 ## 4. channels.yaml
 
@@ -107,7 +107,7 @@ const event = verifyWebhook(
 
 链接指向 `public_url`。serve 仍然只监听 127.0.0.1。从别的机器访问要你自己转发，这一轮不提供。链接是 bearer 凭据，不要发到公开频道。
 
-确认页用一次性表单 nonce，加上和会话页相同的 Origin 检查。它不种会话 cookie。决定的渠道是 `webhook_link`，保证是 `app_asserted`，审批人始终是任务 principal。链接不使用 `--approver`。
+确认页用一次性表单 nonce，加上和会话页相同的 Origin 规则（缺 Origin 时需要 `Sec-Fetch-Site: same-origin`/`none` 或允许来源的 `Referer`）。它不种会话 cookie。链接拒绝也必须写理由，缺理由不会消耗链接。决定的渠道是 `webhook_link`，保证是 `app_asserted`，审批人始终是任务 principal。链接不使用 `--approver`。
 
 ## 7. app_asserted 的含义
 

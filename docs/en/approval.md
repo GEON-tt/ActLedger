@@ -28,15 +28,15 @@ The engine accepts the decision only when that channel is in the task's list. An
 actledger serve --dir .actledger --port 4319 --approver <principal>
 ```
 
-The process binds `127.0.0.1` only. There is no flag to change that. It prints the origin and a one-time login URL. Opening that URL sets a session cookie and burns the token. The same URL then returns 401. Restart `serve` to mint a new one. Restarting also drops every session.
+The process binds `127.0.0.1` only. There is no flag to change that. It prints the origin and a login URL. The token lives in `.actledger/serve.token` (mode 0600, or `--token-file <path>`), survives restarts, and can be used to log in again; each login opens a new session. `actledger serve --print-login` prints the same URL and exits without starting the server. `actledger serve --rotate-token` writes a new token, so older login URLs and every existing session stop working, then starts the server and prints the new URL. `--one-time-login` keeps the old behavior: an in-memory token that works once and is never written to disk.
 
 The cookie is `actledger_session`. It is `HttpOnly`, `SameSite=Strict`, and `Path=/`. It has no `Secure` attribute and no `Max-Age`: this server speaks plain HTTP on loopback, and browsers do not reliably store `Secure` cookies for `http://127.0.0.1`. The cookie is a session cookie. The server expires it after 12 idle hours, or 24 hours from creation, whichever comes first.
 
-Session posts send a per-session CSRF token and must come from an allowed `Origin` (`http://127.0.0.1:<port>`, `http://localhost:<port>`, or the origin of `public_url`). A `Sec-Fetch-Site` header, when present, must be `same-origin` or `none`. Every request must carry an allowed `Host`, or the server answers 421. GET never approves or rejects.
+Session posts send a per-session CSRF token. If the request has an `Origin`, it must be an allowed origin (`http://127.0.0.1:<port>`, `http://localhost:<port>`, or the origin of `public_url`). If `Origin` is missing or `null` (some Safari versions), the post is accepted only when `Sec-Fetch-Site` is `same-origin` or `none`, or `Referer` comes from an allowed origin; the CSRF token and the `SameSite=Strict` session cookie are still required. A `Sec-Fetch-Site` header, when present, must be `same-origin` or `none`. Every request must carry an allowed `Host`, or the server answers 421. GET never approves or rejects, and opening the login URL needs no `Origin`.
 
 Without `--approver`, the page approves as `task.principalId`, the same identity the CLI uses. That default is not the application name `local`. With `--approver`, the value is passed through. Only tasks whose principal matches can be approved; the others return `403 approver_mismatch`.
 
-The page cannot edit the payload, cannot collect step-up, and can only assert `app_asserted`. If the task needs a higher assurance or a step-up, the approve button is disabled. Rejection is still available unless the channel itself is not allowed.
+The page cannot edit the payload, cannot collect step-up, and can only assert `app_asserted`. If the task needs a higher assurance or a step-up, the approve button is disabled. Rejection is still available unless the channel itself is not allowed. A rejection needs a reason: the page answers `400 reason_required` without one, and `actledger reject` requires `--note`.
 
 ## 4. channels.yaml
 
@@ -107,7 +107,7 @@ Add `webhook_link` to the task's `approval.channels` or the webhook's `approve_u
 
 The link points at `public_url`. Serve still listens only on 127.0.0.1. Reaching that URL from another machine is your own forwarding, which this release does not set up. The link is a bearer credential. Do not post it to a public channel.
 
-The confirmation page uses a one-time form nonce plus the same Origin check as the session page. It does not set a session cookie. The decision is channel `webhook_link`, assurance `app_asserted`, and the approver is always the task principal. `--approver` is not applied.
+The confirmation page uses a one-time form nonce plus the same Origin rule as the session page (a missing Origin needs `Sec-Fetch-Site: same-origin`/`none` or an allowed `Referer`). It does not set a session cookie. A link rejection needs a reason, and a missing reason does not use up the link. The decision is channel `webhook_link`, assurance `app_asserted`, and the approver is always the task principal. `--approver` is not applied.
 
 ## 7. What app_asserted means
 
