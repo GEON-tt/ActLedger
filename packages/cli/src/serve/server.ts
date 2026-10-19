@@ -30,13 +30,16 @@ import {
   renderLink,
   renderLinkStatus,
   renderList,
+  renderLoginEnded,
   renderResult,
+  statusTone,
   type DecisionInfo,
   type LinkPage,
   type ListRow,
   type TaskPage,
   type TimelineRow,
 } from "./html.js";
+import { pickLocale, t, type Locale } from "./i18n.js";
 import { LinkNonces, loadOrCreateLinkKey, UsedLinks, verifyLink } from "./links.js";
 import { defaultHttpPost, Notifier, type HttpPost } from "./notifier.js";
 import {
@@ -140,14 +143,15 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
     let boundPort = opts.port ?? 4319;
 
     server = http.createServer((req, res) => {
-      void route(req, res).catch((error: unknown) => {
+      const ctx: { locale: Locale } = { locale: "en" };
+      void route(req, res, ctx).catch((error: unknown) => {
         if (res.headersSent) return;
         if (error instanceof LedgerError) {
-          sendHtml(res, error.status, renderError(error.code, error.message));
+          sendHtml(res, error.status, renderError(ctx.locale, error.code, error.message));
           return;
         }
         if (error instanceof HttpFail) {
-          sendFail(res, error);
+          sendFail(res, error, ctx.locale);
           return;
         }
         log(`internal error: ${error instanceof Error ? (error.stack ?? error.message) : "unknown"}`);
@@ -223,12 +227,16 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
       return closing;
     };
 
-    async function route(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    async function route(req: http.IncomingMessage, res: http.ServerResponse, ctx: { locale: Locale }): Promise<void> {
       if (!hostAllowed(req.headers.host, hosts)) {
         throw new HttpFail(421, "misdirected_request", "misdirected request", true);
       }
       const method = req.method ?? "GET";
       const url = new URL(req.url ?? "/", origin || "http://127.0.0.1");
+      const picked = pickLocale(req.headers, method === "GET" ? url : null);
+      ctx.locale = picked.locale;
+      const locale = picked.locale;
+      if (picked.setCookie) res.setHeader("Set-Cookie", picked.setCookie);
       const pathname = url.pathname;
       const sessionId = parseCookies(req.headers.cookie).get("actledger_session");
       const session = sessions.get(sessionId);
@@ -240,7 +248,7 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
         return;
       }
       if (pathname === "/login-ended" && method === "GET") {
-        sendText(res, 200, "login ended");
+        sendHtml(res, 200, renderLoginEnded(locale));
         return;
       }
 
@@ -256,11 +264,11 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
           throw new HttpFail(404, "not_found", "not found", true);
         }
         if (method === "GET") {
-          linkGet(url, id, res);
+          linkGet(url, id, res, locale);
           return;
         }
         if (method === "POST") {
-          await linkPost(req, id, res);
+          await linkPost(req, id, res, locale);
           return;
         }
         if (!session) throw new HttpFail(401, "unauthorized", "unauthorized", true);
@@ -288,7 +296,17 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
         if (pathname === "/" && method === "GET") {
           const tab = taskTab(url.searchParams.get("tab"));
           if (!tab) throw new HttpFail(400, "invalid_request", "tab must be pending, recent or all");
-          sendHtml(res, 200, renderList({ tab, rows: tabTasks(tab).map(listRow), csrf: session.csrf }));
+          sendHtml(
+            res,
+            200,
+            renderList(locale, {
+              tab,
+              rows: tabTasks(tab).map(listRow),
+              csrf: session.csrf,
+              counts: tabCounts(),
+              now: formatTimestamp(now()),
+            }),
+          );
           return;
         }
         if (pathname === "/api/tasks" && method === "GET") {
@@ -313,7 +331,7 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
           return;
         }
         if (taskMatch && method === "GET") {
-          sendHtml(res, 200, renderDetail(detailPage(taskMatch[1] ?? "", session.csrf)));
+          sendHtml(res, 200, renderDetail(locale, detailPage(taskMatch[1] ?? "", session.csrf, locale), formatTimestamp(now())));
           return;
         }
         if (actionMatch && method === "POST") {
@@ -344,6 +362,15 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
       return engine.listTasks().reverse().slice(0, 200);
     }
 
+    function tabCounts(): Record<TaskTab, number> {
+      const all = engine.listTasks();
+      return {
+        pending: all.filter((task) => task.state === "pending_approval").length,
+        recent: Math.min(50, all.filter((task) => task.approvalId !== null).length),
+        all: Math.min(200, all.length),
+      };
+    }
+
     function listRow(task: TaskView): ListRow {
       return {
         id: task.id,
@@ -353,7 +380,8 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
         principalId: task.principalId,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
-        expiresAt: expiresLabel(task.expiresAt, now()),
+        expiresAt: task.expiresAt ?? "",
+        expired: isExpired(task.expiresAt, now()),
         intent: clip(shownIntent(engine, task.id, "(unavailable)"), 120),
         args: shownArgs(engine, task.id, false),
       };
@@ -376,15 +404,15 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
       };
     }
 
-    function detailPage(id: string, csrf: string): TaskPage {
+    function detailPage(id: string, csrf: string, locale: Locale): TaskPage {
       const task = engine.getTask(id);
       if (!task) throw new HttpFail(404, "not_found", "task not found");
-      const gate = approvalGate(task, opts.approver);
+      const gate = approvalGate(task, opts.approver, locale);
       let rows: TimelineRow[] = [];
       let decided: DecisionInfo | null = null;
       try {
         const receipts = engine.listTaskReceipts(task.id);
-        rows = timeline(receipts);
+        rows = timeline(receipts, locale);
         decided = decisionInfo(receipts);
       } catch {
         rows = [];
@@ -396,7 +424,10 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
         principalId: task.principalId,
         agentId: task.agentId ?? "",
         createdAt: task.createdAt,
-        expiresAt: expiresLabel(task.expiresAt, now()),
+        expiresAt: task.expiresAt ?? "",
+        expired: isExpired(task.expiresAt, now()),
+        level: task.action.level ?? "",
+        actionType: task.action.type,
         action: JSON.stringify(task.action, null, 2),
         intent: shownIntent(engine, task.id, "(unavailable: shredded)"),
         payload: shownPayload(engine, task.id),
@@ -420,17 +451,17 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
       };
     }
 
-    function linkGet(url: URL, id: string, res: http.ServerResponse): void {
+    function linkGet(url: URL, id: string, res: http.ServerResponse, locale: Locale): void {
       const task = engine.getTask(id);
       if (!task) {
-        sendHtml(res, 404, renderLinkStatus(id, null));
+        sendHtml(res, 404, renderLinkStatus(locale, id, null));
         return;
       }
       const sig = url.searchParams.get("sig") ?? "";
       const exp = parseExp(url.searchParams.get("exp") ?? undefined);
       assertLink(task, sig, exp);
       if (task.state !== "pending_approval") {
-        sendHtml(res, 200, renderLinkStatus(task.id, task.state));
+        sendHtml(res, 200, renderLinkStatus(locale, task.id, task.state));
         return;
       }
       const nonce = nonces.issue(task.id, sig, now().getTime());
@@ -450,10 +481,10 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
         exp: String(exp),
         nonce,
       };
-      sendHtml(res, 200, renderLink(page));
+      sendHtml(res, 200, renderLink(locale, page));
     }
 
-    async function linkPost(req: http.IncomingMessage, id: string, res: http.ServerResponse): Promise<void> {
+    async function linkPost(req: http.IncomingMessage, id: string, res: http.ServerResponse, locale: Locale): Promise<void> {
       const form = await readForm(req);
       const task = engine.getTask(id);
       if (!task) throw new HttpFail(404, "not_found", "task not found");
@@ -484,7 +515,7 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
           stepUp: false,
           simulated: false,
         });
-        sendHtml(res, 200, renderResult(result.task.id, result.task.state, result.receipt.hash));
+        sendHtml(res, 200, renderResult(locale, result.task.id, result.task.state, result.receipt.hash));
         return;
       }
       const result = engine.reject(id, {
@@ -495,7 +526,7 @@ export async function startServer(opts: ServeOptions): Promise<ServeHandle> {
         note,
         simulated: false,
       });
-      sendHtml(res, 200, renderResult(result.task.id, result.task.state, result.receipt.hash));
+      sendHtml(res, 200, renderResult(locale, result.task.id, result.task.state, result.receipt.hash));
     }
 
     function assertLink(task: TaskView, sig: string, exp: number | null): asserts exp is number {
@@ -595,31 +626,28 @@ function taskTab(value: string | null): TaskTab | null {
 
 function approvalGate(
   task: TaskView,
-  approver?: string,
+  approver: string | undefined,
+  locale: Locale,
 ): { hints: string[]; approveDisabled: boolean; rejectDisabled: boolean } {
   const hints: string[] = [];
   let approveDisabled = false;
   let rejectDisabled = false;
   if (!effectiveChannels(task.decision).includes("web")) {
-    hints.push("策略不允许网页审批，请用 `actledger approve`");
+    hints.push(t(locale, "hint.channel"));
     approveDisabled = true;
     rejectDisabled = true;
   }
   if (task.decision.minAssurance && assuranceRank(task.decision.minAssurance) > assuranceRank("app_asserted")) {
     const min = task.decision.minAssurance;
-    hints.push(
-      `Approve is disabled: this action needs ${min} assurance, and this page can only record app_asserted. Approve it with the CLI (actledger approve ${task.id} --assurance ${min}) or a verified channel. You can still reject it here with a reason.`,
-    );
+    hints.push(t(locale, "hint.assurance", { min, id: task.id }));
     approveDisabled = true;
   }
   if (task.decision.stepUp) {
-    hints.push(
-      `Approve is disabled: this action needs step-up ${task.decision.stepUp}, which this page cannot collect. Use the CLI (actledger approve ${task.id} --step-up).`,
-    );
+    hints.push(t(locale, "hint.stepUp", { stepUp: task.decision.stepUp, id: task.id }));
     approveDisabled = true;
   }
   if (approver && approver !== task.principalId) {
-    hints.push("审批人不匹配");
+    hints.push(t(locale, "hint.approver"));
     approveDisabled = true;
     rejectDisabled = true;
   }
@@ -662,13 +690,7 @@ function isExpired(expiresAt: string | null, at: Date): boolean {
   return at.getTime() > new Date(expiresAt).getTime();
 }
 
-function expiresLabel(expiresAt: string | null, at: Date): string {
-  if (!expiresAt) return "";
-  if (isExpired(expiresAt, at)) return `${expiresAt} 已超时`;
-  return expiresAt;
-}
-
-function timeline(receipts: Receipt[]): TimelineRow[] {
+function timeline(receipts: Receipt[], locale: Locale): TimelineRow[] {
   const rows: TimelineRow[] = [];
   for (const receipt of receipts) {
     if (!receipt.transition) continue;
@@ -678,37 +700,37 @@ function timeline(receipts: Receipt[]): TimelineRow[] {
     let label = to;
     let detail = "";
     if (to === "prepared" && from === null) {
-      label = "requested";
+      label = t(locale, "tl.requested");
     } else if (to === "pending_approval") {
-      label = "pending approval";
-      detail = `rule ${policyRule(body)}`;
+      label = t(locale, "tl.pending");
+      detail = t(locale, "tl.rule", { rule: policyRule(body) });
     } else if (to === "approved" && receipt.actor.type === "policy") {
-      label = "approved by policy";
-      detail = `rule ${receipt.actor.id}`;
+      label = t(locale, "tl.approvedPolicy");
+      detail = t(locale, "tl.rule", { rule: receipt.actor.id });
     } else if (to === "approved") {
-      label = "approved";
-      detail = approvalDetail(body);
+      label = t(locale, "tl.approved");
+      detail = approvalDetail(body, locale);
     } else if (to === "rejected" && receipt.actor.type === "policy") {
-      label = "denied by policy";
-      detail = `reason ${textField(body.reason) ?? ""}`;
+      label = t(locale, "tl.deniedPolicy");
+      detail = t(locale, "tl.reason", { reason: textField(body.reason) ?? "" });
     } else if (to === "rejected") {
-      label = "rejected";
-      detail = approvalDetail(body);
-      if (typeof body.note_commit === "string") detail += " · reason recorded";
+      label = t(locale, "tl.rejected");
+      detail = approvalDetail(body, locale);
+      if (typeof body.note_commit === "string") detail += t(locale, "tl.reasonRecorded");
     } else if (to === "drafted") {
-      label = "drafted";
+      label = t(locale, "tl.drafted");
     } else if (to === "executing") {
-      label = "claimed";
+      label = t(locale, "tl.claimed");
     } else if (to === "executed") {
-      label = "completed";
+      label = t(locale, "tl.completed");
     } else if (to === "failed") {
-      label = "failed";
+      label = t(locale, "tl.failed");
       const code = textField(recordField(body.error)?.code);
-      if (code) detail = `error ${code}`;
+      if (code) detail = t(locale, "tl.error", { code });
     } else if (to === "unknown" || to === "expired" || to === "revoked") {
-      label = to;
+      label = t(locale, to === "unknown" ? "tl.unknown" : to === "expired" ? "tl.expired" : "tl.revoked");
       const reason = textField(body.reason);
-      if (reason) detail = `reason ${reason}`;
+      if (reason) detail = t(locale, "tl.reason", { reason });
     }
     rows.push({
       at: receipt.issued_at,
@@ -716,6 +738,7 @@ function timeline(receipts: Receipt[]): TimelineRow[] {
       label,
       actor: `${receipt.actor.type}:${receipt.actor.id}`,
       detail,
+      tone: statusTone(to),
     });
   }
   return rows;
@@ -744,12 +767,16 @@ function decisionInfo(receipts: Receipt[]): DecisionInfo | null {
   return null;
 }
 
-function approvalDetail(body: Record<string, unknown>): string {
+function approvalDetail(body: Record<string, unknown>, locale: Locale): string {
   const approval = recordField(body.approval);
   if (!approval) return "";
   const auth = recordField(approval.auth);
-  let detail = `by ${textField(approval.approver) ?? ""} · channel ${textField(approval.channel) ?? ""} · assurance ${textField(approval.assurance) ?? ""}`;
-  if (auth?.simulated === true) detail += " · simulated";
+  let detail = t(locale, "tl.approval", {
+    approver: textField(approval.approver) ?? "",
+    channel: textField(approval.channel) ?? "",
+    assurance: textField(approval.assurance) ?? "",
+  });
+  if (auth?.simulated === true) detail += t(locale, "tl.simulated");
   return detail;
 }
 
@@ -826,7 +853,7 @@ function mediaType(header: string | string[] | undefined): string {
   return (raw ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
 }
 
-function sendFail(res: http.ServerResponse, error: HttpFail): void {
+function sendFail(res: http.ServerResponse, error: HttpFail, locale: Locale): void {
   if (error.status === 401) {
     sendText(res, 401, "unauthorized");
     return;
@@ -839,7 +866,7 @@ function sendFail(res: http.ServerResponse, error: HttpFail): void {
     sendText(res, error.status, error.message);
     return;
   }
-  sendHtml(res, error.status, renderError(error.code, error.message));
+  sendHtml(res, error.status, renderError(locale, error.code, error.message));
 }
 
 function redirect(res: http.ServerResponse, location: string, setCookie?: string): void {
@@ -868,11 +895,16 @@ function send(
   type: string,
   extra?: Record<string, string>,
 ): void {
-  res.writeHead(status, {
+  const prior = res.getHeader("Set-Cookie");
+  const headers: http.OutgoingHttpHeaders = {
     "Content-Type": type,
     "Content-Length": Buffer.byteLength(body),
     ...SECURITY_HEADERS,
     ...extra,
-  });
+  };
+  if (prior !== undefined && extra?.["Set-Cookie"]) {
+    headers["Set-Cookie"] = [...(Array.isArray(prior) ? prior : [String(prior)]), extra["Set-Cookie"]];
+  }
+  res.writeHead(status, headers);
   res.end(body);
 }

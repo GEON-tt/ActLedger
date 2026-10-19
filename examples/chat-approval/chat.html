@@ -1,228 +1,708 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ActLedger 对话审批 demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ActLedger chat approval demo</title>
 <style>
+/* actledger-tokens:start */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #e2e5ea;
+  --border-strong: #c9ced6;
+  --text: #15181e;
+  --text-2: #464d59;
+  --text-3: #66707e;
+  --primary: #2f5bea;
+  --primary-hover: #2449c7;
+  --primary-contrast: #ffffff;
+  --focus: #2f5bea;
+  --pending-fg: #8a5300;
+  --pending-bg: #fff4dc;
+  --pending-border: #f0c768;
+  --ok-fg: #13683a;
+  --ok-bg: #e3f5ea;
+  --ok-border: #9fd8b4;
+  --rejected-fg: #b42318;
+  --rejected-bg: #fdeceb;
+  --rejected-border: #f4b4ae;
+  --muted-fg: #4b5563;
+  --muted-bg: #eceff3;
+  --muted-border: #d3d8df;
+  --failed-fg: #7a1010;
+  --failed-bg: #f8dddd;
+  --failed-border: #e09a9a;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+  --shadow-2: 0 6px 16px rgba(16, 24, 40, 0.12);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
   :root {
-    color-scheme: light;
-    --ink: #1c1915;
-    --muted: #5c564c;
-    --paper: #f6f1e7;
-    --card: #fffdf8;
-    --line: #d9d0c1;
-    --user: #1f4d3a;
-    --user-bg: #e5f2ea;
-    --pending: #8a4b08;
-    --pending-bg: #fff1d6;
-    --error: #8d1d1d;
-    --error-bg: #fde8e4;
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-2: #1f232c;
+    --border: #2b303b;
+    --border-strong: #3b4250;
+    --text: #e8eaef;
+    --text-2: #b6bcc7;
+    --text-3: #8e96a4;
+    --primary: #7c9cff;
+    --primary-hover: #9db5ff;
+    --primary-contrast: #0f1115;
+    --focus: #9db5ff;
+    --pending-fg: #f6c66b;
+    --pending-bg: #352708;
+    --pending-border: #6b4e12;
+    --ok-fg: #6fd69a;
+    --ok-bg: #0f2c1c;
+    --ok-border: #1f5a37;
+    --rejected-fg: #ff8a80;
+    --rejected-bg: #3a1513;
+    --rejected-border: #6e2a25;
+    --muted-fg: #b6bcc7;
+    --muted-bg: #242934;
+    --muted-border: #3b4250;
+    --failed-fg: #ffb3b3;
+    --failed-bg: #461111;
+    --failed-border: #7d2424;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.5);
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: var(--paper);
-    color: var(--ink);
-    font: 16px/1.5 "Iowan Old Style", Palatino, "Palatino Linotype", "Songti SC", serif;
-  }
-  header, #pending, #log, #composer { padding-left: 1.25rem; padding-right: 1.25rem; }
-  header { padding-top: 1rem; border-bottom: 1px solid var(--line); background: var(--card); }
-  .bar { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: baseline; }
-  h1 { margin: 0; font-size: 1.25rem; font-weight: 650; }
-  #provider, .hint { color: var(--muted); }
-  .hint { margin: 0.35rem 0 0.8rem; font-size: 0.85rem; }
-  a { color: #1d4e89; }
-  #pending {
-    margin: 0.75rem 1.25rem 0;
-    padding: 0.6rem 0.8rem;
-    background: var(--pending-bg);
-    color: var(--pending);
-    border: 1px solid #efd3a4;
-  }
-  #pending div { margin: 0.15rem 0; }
-  #log { padding-top: 1rem; padding-bottom: 6.5rem; }
-  .msg, .row, .card {
-    max-width: 42rem;
-    margin: 0 0 0.7rem;
-    padding: 0.55rem 0.75rem;
-  }
-  .msg.user { margin-left: auto; background: var(--user-bg); color: var(--user); }
-  .msg.agent { background: var(--card); border: 1px solid var(--line); white-space: pre-wrap; }
-  .row.tool { color: var(--muted); font-size: 0.92rem; }
-  .row.pending { background: var(--pending-bg); color: var(--pending); }
-  .row.error { background: var(--error-bg); color: var(--error); }
-  .card { background: var(--card); border: 1px solid var(--line); }
-  .card div { margin: 0.2rem 0; }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82rem; }
-  #composer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    gap: 0.5rem;
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
-    background: var(--card);
-    border-top: 1px solid var(--line);
-  }
-  input {
-    flex: 1;
-    font: inherit;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid var(--line);
-    background: #fff;
-    color: var(--ink);
-  }
-  button {
-    font: inherit;
-    padding: 0.55rem 1rem;
-    border: 0;
-    background: var(--ink);
-    color: var(--paper);
-  }
-  button:disabled { opacity: 0.45; }
+}
+/* actledger-tokens:end */
+[hidden]{display:none !important}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--font-sans); -webkit-font-smoothing: antialiased; }
+.mono, code, pre { font-family: var(--font-mono); }
+code { font-size: .86em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-1); padding: 20px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; font: 600 14px/20px var(--font-sans); padding: 8px 14px; border-radius: var(--radius); border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+.btn-primary { background: var(--primary); color: var(--primary-contrast); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+.btn-sm { padding: 5px 10px; font-size: 13px; }
+:disabled { opacity: .5; cursor: not-allowed; }
+a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.copy { display: none; width: 28px; height: 28px; padding: 0; align-items: center; justify-content: center; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); cursor: pointer; }
+.js .copy { display: inline-flex; }
+.copy .i-check { display: none; }
+.copy.is-copied .i-copy { display: none; }
+.copy.is-copied .i-check { display: inline; }
+.app-header { background: var(--surface); border-bottom: 1px solid var(--border); }
+.app-header-inner { max-width: 1120px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; }
+.brand-name { font-weight: 700; }
+.brand-sub { color: var(--text-3); font-size: 13px; padding-left: 8px; border-left: 1px solid var(--border); }
+.header-actions { display: inline-flex; align-items: center; gap: 10px; }
+.lang-switch { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 999px; overflow: hidden; }
+.lang-switch button { font: 600 13px/18px var(--font-sans); padding: 4px 10px; border: 0; background: transparent; color: var(--text-2); cursor: pointer; }
+.lang-switch button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+.provider-chip { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok-fg); }
+.hint { max-width: 1120px; margin: 0 auto; padding: 0 20px 10px; color: var(--text-3); font-size: 13px; }
+.chat-log { max-width: 820px; margin: 0 auto; padding: 20px 16px 190px; }
+.welcome h1 { margin: 0 0 8px; font-size: 22px; }
+.welcome p { margin: 0; color: var(--text-2); }
+.msg { display: flex; gap: 8px; margin: 0 0 12px; }
+.msg-user { justify-content: flex-end; }
+.bubble { white-space: pre-wrap; word-break: break-word; padding: 10px 14px; border-radius: 14px; max-width: min(640px, 85%); }
+.msg-user .bubble { background: var(--primary); color: var(--primary-contrast); border-bottom-right-radius: 4px; }
+.msg-agent .bubble { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.avatar { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); box-shadow: inset 0 0 0 7px var(--surface), inset 0 0 0 14px var(--primary); }
+.tool-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; margin: 0 0 12px; box-shadow: var(--shadow-1); }
+.tool-card.tone-calling { box-shadow: inset 3px 0 0 var(--muted-border), var(--shadow-1); }
+.tool-card.tone-pending { box-shadow: inset 3px 0 0 var(--pending-border), var(--shadow-1); }
+.tool-card.tone-ok { box-shadow: inset 3px 0 0 var(--ok-border), var(--shadow-1); }
+.tool-card.tone-rejected { box-shadow: inset 3px 0 0 var(--rejected-border), var(--shadow-1); }
+.tool-card.tone-failed { box-shadow: inset 3px 0 0 var(--failed-border), var(--shadow-1); }
+.tool-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tool-name { font-size: 13px; }
+.tool-args { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; white-space: pre-wrap; word-break: break-word; font-size: 13px; max-height: 240px; overflow: auto; margin: 10px 0 0; }
+.tool-steps { margin: 10px 0 0; padding-left: 18px; color: var(--text-2); font-size: 14px; }
+.tool-steps li { margin: 4px 0; }
+.tool-foot { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 14px; }
+.receipt { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 13px; }
+.summary-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.summary-links { margin-top: 8px; }
+.tool-steps a.mono { margin-inline-start: 6px; }
+.hash { word-break: break-all; }
+.status { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 18px; border: 1px solid; }
+.status-pending { color: var(--pending-fg); background: var(--pending-bg); border-color: var(--pending-border); }
+.status-ok { color: var(--ok-fg); background: var(--ok-bg); border-color: var(--ok-border); }
+.status-rejected { color: var(--rejected-fg); background: var(--rejected-bg); border-color: var(--rejected-border); }
+.status-muted { color: var(--muted-fg); background: var(--muted-bg); border-color: var(--muted-border); }
+.status-failed { color: var(--failed-fg); background: var(--failed-bg); border-color: var(--failed-border); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.status-pending .status-dot, .pulse { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .status-pending .status-dot, .pulse, .spinner { animation: none; }
+}
+.turn-summary { margin: 0 0 12px; }
+.summary-title { margin: 0 0 10px; font-size: 15px; }
+.summary-tasks { list-style: none; margin: 0; padding: 0; }
+.summary-task { padding: 10px 0; border-top: 1px solid var(--border); }
+.summary-kv { display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 0; }
+.summary-kv dt { font-size: 12px; color: var(--text-3); }
+.summary-kv dd { margin: 0; }
+.help { color: var(--text-2); font-size: 13px; margin: 4px 0 0; }
+.verify { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; }
+.badge { font: 700 12px/18px var(--font-mono); padding: 1px 8px; border-radius: var(--radius-sm); }
+.badge-ok { color: var(--ok-fg); background: var(--ok-bg); border: 1px solid var(--ok-border); }
+.badge-fail { color: var(--failed-fg); background: var(--failed-bg); border: 1px solid var(--failed-border); }
+.task-link { color: var(--primary); }
+.notice { padding: 12px 14px; border-radius: var(--radius); border: 1px solid; margin: 0 0 12px; }
+.notice-error { color: var(--rejected-fg); background: var(--rejected-bg); border-color: var(--rejected-border); }
+.pending-float { position: fixed; right: 16px; bottom: calc(var(--composer-h, 130px) + 12px); display: inline-flex; gap: 8px; align-items: center; padding: 10px 14px; border-radius: 999px; background: var(--pending-bg); color: var(--pending-fg); border: 1px solid var(--pending-border); box-shadow: var(--shadow-2); font-weight: 600; text-decoration: none; z-index: 6; }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.composer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); box-shadow: var(--shadow-2); z-index: 5; }
+.composer > * { max-width: 820px; margin: 0 auto; }
+.composer-row { display: flex; gap: 8px; }
+#text { flex: 1; font: inherit; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); }
+.examples { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.examples-label { color: var(--text-3); font-size: 13px; }
+.chip-btn { font: 13px/18px var(--font-sans); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
+@media (max-width: 560px) {
+  .brand-sub { display: none; }
+  .hint { display: none; }
+  .pending-float { left: 12px; right: 12px; }
+}
 </style>
 </head>
 <body>
-<header>
-  <div class="bar">
-    <h1>ActLedger 对话审批 demo</h1>
-    <p id="provider">provider: …</p>
-    <a id="console" target="_blank" rel="noopener">打开审批台</a>
-  </div>
-  <p class="hint">审批台显示 unauthorized 时，打开终端里打印的 login 链接。</p>
+<header class="app-header">
+<div class="app-header-inner">
+<div class="brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span class="brand-name">ActLedger</span><span class="brand-sub" data-s="title"></span></div>
+<span class="provider-chip" id="provider"><span class="chip-dot" aria-hidden="true"></span><span id="provider-text" data-s="providerLoading"></span></span>
+<div class="header-actions">
+<div class="lang-switch" role="group" data-s-aria="language">
+<button type="button" data-lang="en" aria-pressed="false">EN</button><button type="button" data-lang="zh-CN" aria-pressed="false">中文</button>
+</div>
+<a id="console" class="btn btn-secondary btn-sm" target="_blank" rel="noopener" data-s="openConsole"></a>
+</div>
+</div>
+<p class="hint" data-s="loginHint"></p>
 </header>
-<div id="pending" hidden></div>
-<div id="log"></div>
-<div id="composer">
-  <input id="text" type="text" placeholder="例如：帮我发一条笔记：明天下午三点开会" disabled>
-  <button id="send" type="button" disabled>发送</button>
+<main id="log" class="chat-log" aria-live="polite">
+<section class="welcome card" id="welcome"><h1 data-s="welcomeTitle"></h1><p data-s="welcomeBody"></p></section>
+</main>
+<a id="pending" class="pending-float" hidden target="_blank" rel="noopener"><span class="pulse" aria-hidden="true"></span><span id="pending-text"></span><span aria-hidden="true">→</span></a>
+<div id="composer" class="composer">
+<div class="examples"><span class="examples-label" data-s="examplesLabel"></span><button type="button" class="chip-btn" data-example="exampleSend"></button><button type="button" class="chip-btn" data-example="exampleList"></button></div>
+<div class="composer-row">
+<input id="text" type="text" autocomplete="off" data-s-placeholder="placeholder" disabled>
+<button id="send" type="button" class="btn btn-primary" disabled><span class="spinner" id="send-spinner" hidden aria-hidden="true"></span><span id="send-label" data-s="send"></span></button>
+</div>
+</div>
+<div id="icons" hidden>
+<svg id="i-tool" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+<svg id="i-copy" class="i-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+<svg id="i-check" class="i-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12l5 5L19 7"/></svg>
 </div>
 <script>
 (function () {
-  var providerEl = document.getElementById("provider");
-  var consoleLink = document.getElementById("console");
-  var pendingEl = document.getElementById("pending");
+  var LANG_KEY = "actledger_demo_lang";
+  var STRINGS = {
+    en: {
+      docTitle: "ActLedger chat approval demo",
+      title: "Chat approval demo",
+      language: "Language",
+      openConsole: "Open approval console",
+      loginHint: "If the console says unauthorized, open the login link printed in the terminal.",
+      providerLoading: "Connecting…",
+      providerFake: "Built-in fake model, no key needed",
+      providerOther: "Model: {name}",
+      welcomeTitle: "Ask the agent to send a note",
+      welcomeBody: "Sending a note waits for your approval in the console. Listing notes runs right away.",
+      examplesLabel: "Try",
+      exampleSend: "send: meeting at 3pm tomorrow",
+      exampleList: "list",
+      placeholder: "e.g. send: meeting at 3pm tomorrow",
+      send: "Send",
+      sending: "Sending…",
+      busy: "The previous message is still running.",
+      configFailed: "Could not load the demo config.",
+      toolCalling: "Calling",
+      toolPending: "Waiting for approval",
+      toolOk: "Done",
+      toolRejected: "Rejected",
+      toolFailed: "Not executed",
+      stepCalled: "Called with these arguments",
+      stepPending: "Waiting for approval in the console: approve it, or reject it with a reason.",
+      stepSubmitted: "Sent for approval",
+      stepResultOk: "Executed",
+      stepResultFail: "Not executed: {reason}",
+      approveInConsole: "Review in console",
+      receipt: "receipt",
+      copy: "Copy",
+      copied: "Copied",
+      summaryTitle: "Turn summary",
+      approver: "Approver",
+      channel: "Channel",
+      approverPending: "pending",
+      reasonRecorded: "Rejection reason recorded",
+      verifyOk: "Receipt chain verified ({n} receipts)",
+      verifyFail: "Receipt chain check failed: {failure}",
+      pendingOne: "1 action is waiting for your approval",
+      pendingMany: "{n} actions are waiting for your approval",
+      state_prepared: "Prepared",
+      state_pending_approval: "Pending approval",
+      state_approved: "Approved",
+      state_executing: "Executing",
+      state_executed: "Executed",
+      state_failed: "Failed",
+      state_unknown: "Unknown",
+      state_rejected: "Rejected",
+      state_drafted: "Drafted",
+      state_expired: "Expired",
+      state_revoked: "Revoked"
+    },
+    "zh-CN": {
+      docTitle: "ActLedger 对话审批 demo",
+      title: "对话审批 demo",
+      language: "语言",
+      openConsole: "打开审批台",
+      loginHint: "审批台显示 unauthorized 时，打开终端里打印的 login 链接。",
+      providerLoading: "连接中…",
+      providerFake: "内置假模型，无需密钥",
+      providerOther: "模型：{name}",
+      welcomeTitle: "让 agent 发一条笔记",
+      welcomeBody: "发笔记要等你在审批台批准；列出笔记会直接执行。",
+      examplesLabel: "试试",
+      exampleSend: "帮我发一条笔记：明天下午三点开会",
+      exampleList: "列出笔记",
+      placeholder: "例如：帮我发一条笔记：明天下午三点开会",
+      send: "发送",
+      sending: "发送中…",
+      busy: "上一条还在进行",
+      configFailed: "加载配置失败",
+      toolCalling: "调用中",
+      toolPending: "等待审批",
+      toolOk: "已完成",
+      toolRejected: "已拒绝",
+      toolFailed: "未执行",
+      stepCalled: "调用参数",
+      stepPending: "等待审批：去审批台批准，或填写理由后拒绝。",
+      stepSubmitted: "已提交审批",
+      stepResultOk: "已执行",
+      stepResultFail: "未执行：{reason}",
+      approveInConsole: "去审批台",
+      receipt: "回执",
+      copy: "复制",
+      copied: "已复制",
+      summaryTitle: "本轮摘要",
+      approver: "审批人",
+      channel: "渠道",
+      approverPending: "待定",
+      reasonRecorded: "已记录拒绝理由",
+      verifyOk: "回执链校验通过（{n} 条回执）",
+      verifyFail: "回执链校验失败：{failure}",
+      pendingOne: "有 1 个操作在等你审批",
+      pendingMany: "有 {n} 个操作在等你审批",
+      state_prepared: "已准备",
+      state_pending_approval: "待审批",
+      state_approved: "已批准",
+      state_executing: "执行中",
+      state_executed: "已执行",
+      state_failed: "失败",
+      state_unknown: "结果未知",
+      state_rejected: "已拒绝",
+      state_drafted: "已存草稿",
+      state_expired: "已过期",
+      state_revoked: "已撤销"
+    }
+  };
+  var STATE_TONE = {
+    prepared: "muted",
+    pending_approval: "pending",
+    approved: "ok",
+    executing: "ok",
+    executed: "ok",
+    failed: "failed",
+    unknown: "failed",
+    rejected: "rejected",
+    drafted: "muted",
+    expired: "muted",
+    revoked: "muted"
+  };
+  var lang = initialLang();
+  var serveOrigin = "";
+  var providerName = "";
+  var sending = false;
+  var current = null;
+  var pendingTasks = [];
+  var summaries = [];
+  var allCards = [];
+  var turn = { byCall: {}, byTask: {}, cards: [] };
   var log = document.getElementById("log");
   var input = document.getElementById("text");
-  var button = document.getElementById("send");
-  var serveOrigin = "";
-  var current = null;
-  var sending = false;
+  var sendBtn = document.getElementById("send");
+  var spinner = document.getElementById("send-spinner");
 
+  function S() { return STRINGS[lang] || STRINGS.en; }
+  function fmt(str, vars) {
+    return String(str == null ? "" : str).replace(/\{(\w+)\}/g, function (match, name) {
+      return vars && Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : match;
+    });
+  }
+  function initialLang() {
+    try {
+      var stored = localStorage.getItem(LANG_KEY);
+      if (stored === "en" || stored === "zh-CN") return stored;
+    } catch (error) {}
+    var nav = (navigator.languages && navigator.languages[0]) || navigator.language || "";
+    return String(nav).toLowerCase().indexOf("zh") === 0 ? "zh-CN" : "en";
+  }
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
   function append(node) {
     log.appendChild(node);
     window.scrollTo(0, document.body.scrollHeight);
     return node;
   }
-
-  function link(href, label) {
-    var anchor = document.createElement("a");
-    anchor.textContent = label;
-    anchor.setAttribute("href", href);
-    anchor.setAttribute("target", "_blank");
-    anchor.setAttribute("rel", "noopener");
+  function icon(id, size) {
+    var proto = document.getElementById(id);
+    var node = proto ? proto.cloneNode(true) : document.createElement("span");
+    if (node.removeAttribute) node.removeAttribute("id");
+    if (size && node.setAttribute) {
+      node.setAttribute("width", String(size));
+      node.setAttribute("height", String(size));
+    }
+    return node;
+  }
+  function syncComposer() {
+    var composer = document.getElementById("composer");
+    if (!composer) return;
+    document.documentElement.style.setProperty("--composer-h", composer.offsetHeight + "px");
+  }
+  function applyStatic() {
+    var nodes = document.querySelectorAll("[data-s]");
+    for (var i = 0; i < nodes.length; i++) {
+      var key = nodes[i].getAttribute("data-s");
+      if (key && S()[key] != null) nodes[i].textContent = S()[key];
+    }
+    var placeholders = document.querySelectorAll("[data-s-placeholder]");
+    for (var p = 0; p < placeholders.length; p++) {
+      var placeholderKey = placeholders[p].getAttribute("data-s-placeholder");
+      if (placeholderKey) placeholders[p].setAttribute("placeholder", S()[placeholderKey] || "");
+    }
+    var labels = document.querySelectorAll("[data-s-aria]");
+    for (var a = 0; a < labels.length; a++) {
+      var ariaKey = labels[a].getAttribute("data-s-aria");
+      if (ariaKey) labels[a].setAttribute("aria-label", S()[ariaKey] || "");
+    }
+    var examples = document.querySelectorAll("[data-example]");
+    for (var e = 0; e < examples.length; e++) {
+      var exampleKey = examples[e].getAttribute("data-example");
+      if (exampleKey) examples[e].textContent = S()[exampleKey] || "";
+    }
+    var buttons = document.querySelectorAll(".lang-switch button");
+    for (var b = 0; b < buttons.length; b++) {
+      buttons[b].setAttribute("aria-pressed", buttons[b].getAttribute("data-lang") === lang ? "true" : "false");
+    }
+  }
+  function paintSendLabel() {
+    var label = document.getElementById("send-label");
+    if (label) label.textContent = sending ? S().sending : S().send;
+  }
+  function paintProvider() {
+    var node = document.getElementById("provider-text");
+    if (!node) return;
+    if (!providerName) {
+      node.textContent = S().providerLoading;
+      return;
+    }
+    node.textContent = providerName === "fake" ? S().providerFake : fmt(S().providerOther, { name: providerName });
+  }
+  function consoleHref(url, taskId) {
+    if (typeof url === "string" && serveOrigin && url.indexOf(serveOrigin + "/") === 0) return url;
+    return serveOrigin + "/tasks/" + encodeURIComponent(taskId || "");
+  }
+  function paintPending() {
+    var float = document.getElementById("pending");
+    var text = document.getElementById("pending-text");
+    if (!float || !text) return;
+    if (!pendingTasks.length) {
+      float.hidden = true;
+      text.textContent = "";
+      return;
+    }
+    float.hidden = false;
+    if (pendingTasks.length === 1) {
+      text.textContent = S().pendingOne;
+      var task = pendingTasks[0];
+      float.setAttribute("href", consoleHref(task.consoleUrl, task.id));
+    } else {
+      text.textContent = fmt(S().pendingMany, { n: pendingTasks.length });
+      var listUrl = serveOrigin + "/?tab=pending";
+      float.setAttribute("href", listUrl.indexOf(serveOrigin + "/") === 0 ? listUrl : serveOrigin + "/");
+    }
+  }
+  function applyLang(persist) {
+    if (persist) {
+      try { localStorage.setItem(LANG_KEY, lang); } catch (error) {}
+    }
+    document.documentElement.lang = lang;
+    document.title = S().docTitle;
+    applyStatic();
+    paintProvider();
+    paintSendLabel();
+    paintPending();
+    for (var i = 0; i < allCards.length; i++) paintCard(allCards[i]);
+    for (var j = 0; j < summaries.length; j++) paintSummary(summaries[j]);
+    syncComposer();
+  }
+  function setLang(next) {
+    lang = next;
+    applyLang(true);
+  }
+  function shortHash(value) {
+    return value.length > 20 ? value.slice(0, 15) + "…" + value.slice(-6) : value;
+  }
+  function statusEl(tone, text, title) {
+    var span = el("span", "status status-" + tone);
+    if (title) span.setAttribute("title", title);
+    var dot = el("span", "status-dot");
+    dot.setAttribute("aria-hidden", "true");
+    span.appendChild(dot);
+    span.appendChild(el("span", "status-text", text));
+    return span;
+  }
+  function stateLabel(state) {
+    var key = "state_" + String(state || "");
+    return S()[key] || state || "";
+  }
+  function receiptEl(hash) {
+    var span = el("span", "receipt");
+    span.appendChild(document.createTextNode(S().receipt + " "));
+    var code = el("code", "hash", shortHash(hash));
+    code.setAttribute("title", hash);
+    span.appendChild(code);
+    var button = el("button", "copy");
+    button.type = "button";
+    button.setAttribute("data-copy", hash);
+    button.setAttribute("aria-label", S().copy);
+    button.setAttribute("title", S().copy);
+    button.appendChild(icon("i-copy", 16));
+    button.appendChild(icon("i-check", 16));
+    span.appendChild(button);
+    return span;
+  }
+  function taskAnchor(taskId, className, label, href) {
+    var anchor = el("a", className || "mono", label || taskId || "");
+    anchor.target = "_blank";
+    anchor.rel = "noopener";
+    var fallback = serveOrigin + "/tasks/" + encodeURIComponent(taskId || "");
+    anchor.setAttribute("href", consoleHref(href || fallback, taskId));
     return anchor;
   }
-
-  function row(className) {
-    var node = document.createElement("div");
-    node.className = className;
-    return append(node);
+  function cardTone(card) {
+    if (card.phase === "calling") return "calling";
+    if (card.phase === "pending") return "pending";
+    if (card.result && card.result.ok) return "ok";
+    if (card.result && card.result.reason === "rejected") return "rejected";
+    return "failed";
   }
-
+  function badgeFor(tone) {
+    if (tone === "calling") return { tone: "muted", text: S().toolCalling };
+    if (tone === "pending") return { tone: "pending", text: S().toolPending };
+    if (tone === "ok") return { tone: "ok", text: S().toolOk };
+    if (tone === "rejected") return { tone: "rejected", text: S().toolRejected };
+    return { tone: "failed", text: S().toolFailed };
+  }
+  function paintCard(card) {
+    var tone = cardTone(card);
+    var badge = badgeFor(tone);
+    card.el.className = "tool-card tone-" + tone;
+    if (card.callId) card.el.setAttribute("data-call-id", card.callId);
+    else card.el.removeAttribute("data-call-id");
+    if (card.taskId) card.el.setAttribute("data-task-id", card.taskId);
+    else card.el.removeAttribute("data-task-id");
+    var head = el("header", "tool-head");
+    var toolIcon = icon("i-tool", 16);
+    if (toolIcon.setAttribute) toolIcon.setAttribute("class", "tool-icon");
+    head.appendChild(toolIcon);
+    head.appendChild(el("code", "tool-name", card.tool || ""));
+    head.appendChild(statusEl(badge.tone, badge.text));
+    var nodes = [head];
+    if (card.args != null) nodes.push(el("pre", "tool-args", JSON.stringify(card.args, null, 2)));
+    var steps = el("ol", "tool-steps");
+    var stepCount = 0;
+    if (card.args != null) {
+      steps.appendChild(el("li", "step step-called", S().stepCalled));
+      stepCount += 1;
+    }
+    if (card.taskId) {
+      var pending = el("li", "step step-pending");
+      var pendingLabel = card.phase === "done" ? S().stepSubmitted : S().stepPending;
+      pending.appendChild(document.createTextNode(pendingLabel + " "));
+      pending.appendChild(taskAnchor(card.taskId, "mono", card.taskId));
+      steps.appendChild(pending);
+      stepCount += 1;
+    }
+    if (card.result) {
+      var resultText = card.result.ok ? S().stepResultOk : fmt(S().stepResultFail, { reason: card.result.reason || "" });
+      steps.appendChild(el("li", "step step-result", resultText));
+      stepCount += 1;
+    }
+    if (stepCount) nodes.push(steps);
+    var foot = el("footer", "tool-foot");
+    var hasFoot = false;
+    if (card.phase === "pending" && card.taskId) {
+      foot.appendChild(taskAnchor(card.taskId, "btn btn-primary btn-sm", S().approveInConsole));
+      hasFoot = true;
+    }
+    if (card.result && card.result.receiptHash) {
+      foot.appendChild(receiptEl(card.result.receiptHash));
+      hasFoot = true;
+    }
+    if (hasFoot) nodes.push(foot);
+    card.el.replaceChildren.apply(card.el, nodes);
+  }
+  function kv(label, value) {
+    var wrap = el("div");
+    wrap.appendChild(el("dt", "", label));
+    wrap.appendChild(el("dd", "", value));
+    return wrap;
+  }
+  function summaryTask(task) {
+    var item = el("li", "summary-task");
+    item.appendChild(el("code", "tool-name", task.tool || ""));
+    item.appendChild(document.createTextNode(" "));
+    item.appendChild(statusEl(STATE_TONE[task.state] || "muted", stateLabel(task.state), task.state || ""));
+    var list = el("dl", "summary-kv");
+    list.appendChild(kv(S().approver, task.approver || S().approverPending));
+    list.appendChild(kv(S().channel, task.channel || "—"));
+    item.appendChild(list);
+    if (task.reasonRecorded) item.appendChild(el("p", "help", S().reasonRecorded));
+    var links = el("div", "summary-links");
+    if (task.receiptHash) links.appendChild(receiptEl(task.receiptHash));
+    links.appendChild(taskAnchor(task.taskId, "task-link mono", task.taskId, task.consoleUrl));
+    item.appendChild(links);
+    return item;
+  }
+  function paintSummary(record) {
+    record.el.replaceChildren();
+    record.el.appendChild(el("h3", "summary-title", S().summaryTitle));
+    var list = el("ul", "summary-tasks");
+    var tasks = record.tasks || [];
+    for (var i = 0; i < tasks.length; i++) list.appendChild(summaryTask(tasks[i]));
+    record.el.appendChild(list);
+    var verify = el("p", "verify");
+    var ok = record.verify && record.verify.ok;
+    verify.appendChild(el("span", ok ? "badge badge-ok" : "badge badge-fail", ok ? "OK" : "FAIL"));
+    verify.appendChild(el("span", "", ok
+      ? fmt(S().verifyOk, { n: record.verify.receipts })
+      : fmt(S().verifyFail, { failure: (record.verify && record.verify.failure) || "" })));
+    record.el.appendChild(verify);
+  }
+  function openCardFor(tool) {
+    for (var i = turn.cards.length - 1; i >= 0; i--) {
+      var card = turn.cards[i];
+      if (card.phase !== "done" && card.taskId === null && card.tool === tool) return card;
+    }
+    return null;
+  }
+  function newCard(callId, tool, args) {
+    var card = {
+      el: document.createElement("article"),
+      callId: callId,
+      taskId: null,
+      tool: tool || "",
+      args: args,
+      phase: "calling",
+      result: null
+    };
+    turn.cards.push(card);
+    allCards.push(card);
+    if (callId) turn.byCall[callId] = card;
+    append(card.el);
+    return card;
+  }
   function showError(message) {
-    var node = row("row error");
-    node.textContent = message;
+    var node = el("div", "notice notice-error", message);
+    node.setAttribute("role", "alert");
+    append(node);
     current = null;
   }
-
-  function refreshPending() {
-    if (!serveOrigin) return;
-    fetch("/pending").then(function (res) { return res.json(); }).then(function (data) {
-      pendingEl.replaceChildren();
-      var tasks = data && data.tasks ? data.tasks : [];
-      if (!tasks.length) {
-        pendingEl.hidden = true;
-        return;
-      }
-      pendingEl.hidden = false;
-      for (var i = 0; i < tasks.length; i++) {
-        var task = tasks[i];
-        var line = document.createElement("div");
-        line.appendChild(link(serveOrigin + "/tasks/" + task.id, task.id));
-        line.appendChild(document.createTextNode(" " + task.tool));
-        pendingEl.appendChild(line);
-      }
-    }).catch(function () {});
-  }
-
   function handleEvent(event) {
+    if (!event || !event.type) return;
     if (event.type === "turn_start") {
+      turn = { byCall: {}, byTask: {}, cards: [] };
       current = null;
       return;
     }
     if (event.type === "text") {
-      if (!current) current = row("msg agent");
-      current.textContent += event.text;
+      if (!current) {
+        current = el("div", "msg msg-agent");
+        var avatar = el("span", "avatar");
+        avatar.setAttribute("aria-hidden", "true");
+        current.appendChild(avatar);
+        current.appendChild(el("div", "bubble", ""));
+        append(current);
+      }
+      var bubble = current.querySelector(".bubble");
+      if (bubble) bubble.textContent += event.text || "";
       window.scrollTo(0, document.body.scrollHeight);
       return;
     }
     if (event.type === "tool_call") {
-      var call = row("row tool");
-      call.textContent = "调用 " + event.tool + " " + JSON.stringify(event.args);
+      var called = newCard(event.callId, event.tool, event.args);
       current = null;
+      paintCard(called);
       return;
     }
     if (event.type === "approval_pending") {
-      var waiting = row("row pending");
-      waiting.appendChild(document.createTextNode("等待审批："));
-      waiting.appendChild(link(serveOrigin + "/tasks/" + event.taskId, event.taskId));
-      waiting.appendChild(document.createTextNode("（" + event.tool + "）去审批台批准，或填写理由后拒绝"));
+      var card;
+      if (event.callId) {
+        var existing = turn.byTask[event.taskId];
+        card = turn.byCall[event.callId] || existing || openCardFor(event.tool) || newCard(event.callId, event.tool, null);
+        if (existing && existing !== card) card = existing;
+        turn.byCall[event.callId] = card;
+      } else {
+        card = turn.byTask[event.taskId] || openCardFor(event.tool) || newCard(null, event.tool, null);
+      }
+      card.taskId = event.taskId;
+      card.phase = "pending";
+      if (!card.tool) card.tool = event.tool || "";
+      turn.byTask[event.taskId] = card;
       current = null;
+      paintCard(card);
       return;
     }
     if (event.type === "tool_result") {
-      var result = row("row tool");
-      result.appendChild(document.createTextNode(event.ok ? event.tool + " 完成" : event.tool + " 未执行：" + (event.reason || "")));
+      var resultCard = turn.byCall[event.callId] || (event.taskId && turn.byTask[event.taskId]) || openCardFor(event.tool) || newCard(event.callId, event.tool, null);
+      turn.byCall[event.callId] = resultCard;
       if (event.taskId) {
-        result.appendChild(document.createTextNode(" "));
-        result.appendChild(link(serveOrigin + "/tasks/" + event.taskId, event.taskId));
+        resultCard.taskId = event.taskId;
+        turn.byTask[event.taskId] = resultCard;
       }
-      if (event.receiptHash) {
-        result.appendChild(document.createTextNode(" "));
-        var hash = document.createElement("code");
-        hash.textContent = "receipt " + event.receiptHash;
-        result.appendChild(hash);
-      }
+      if (!resultCard.tool) resultCard.tool = event.tool || "";
+      resultCard.result = { ok: event.ok, reason: event.reason, receiptHash: event.receiptHash };
+      resultCard.phase = "done";
       current = null;
+      paintCard(resultCard);
       return;
     }
     if (event.type === "turn_summary") {
-      var card = row("card");
-      var tasks = event.tasks || [];
-      for (var i = 0; i < tasks.length; i++) {
-        var task = tasks[i];
-        var line = document.createElement("div");
-        line.appendChild(link(serveOrigin + "/tasks/" + task.taskId, task.taskId));
-        var extra = " " + task.tool + " " + task.state + " 审批人 " + (task.approver || "pending");
-        if (task.channel) extra += " via " + task.channel;
-        if (task.reasonRecorded) extra += " 已记录拒绝理由";
-        extra += " ";
-        line.appendChild(document.createTextNode(extra));
-        var receipt = document.createElement("code");
-        receipt.textContent = "receipt " + (task.receiptHash || "-");
-        line.appendChild(receipt);
-        card.appendChild(line);
-      }
-      var verify = document.createElement("div");
-      verify.textContent = event.verify && event.verify.ok
-        ? "verify: OK (" + event.verify.receipts + " receipts)"
-        : "verify: FAIL " + ((event.verify && event.verify.failure) || "");
-      card.appendChild(verify);
+      var record = { el: document.createElement("section"), tasks: event.tasks || [], verify: event.verify || {} };
+      record.el.className = "turn-summary card";
+      summaries.push(record);
+      append(record.el);
+      paintSummary(record);
       current = null;
       return;
     }
@@ -230,30 +710,40 @@
       showError(event.message || "");
       return;
     }
-    if (event.type === "done") {
-      sending = false;
-      button.disabled = false;
-      input.focus();
-      refreshPending();
-    }
+    if (event.type === "done") finishSend();
   }
-
   function finishSend() {
     sending = false;
-    button.disabled = false;
+    sendBtn.disabled = false;
+    spinner.hidden = true;
+    paintSendLabel();
+    log.setAttribute("aria-busy", "false");
     input.focus();
+    refreshPending();
   }
-
+  function refreshPending() {
+    if (!serveOrigin) return;
+    fetch("/pending").then(function (res) { return res.json(); }).then(function (data) {
+      pendingTasks = data && data.tasks ? data.tasks : [];
+      paintPending();
+    }).catch(function () {});
+  }
   function send() {
     if (sending || !serveOrigin) return;
     var text = input.value.trim();
     if (!text) return;
     sending = true;
-    button.disabled = true;
+    sendBtn.disabled = true;
+    spinner.hidden = false;
+    paintSendLabel();
+    log.setAttribute("aria-busy", "true");
+    var welcome = document.getElementById("welcome");
+    if (welcome) welcome.remove();
     input.value = "";
     current = null;
-    var user = row("msg user");
-    user.textContent = text;
+    var user = el("div", "msg msg-user");
+    user.appendChild(el("div", "bubble", text));
+    append(user);
     fetch("/message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -261,7 +751,7 @@
     }).then(function (res) {
       if (res.status !== 200) {
         return res.json().catch(function () { return {}; }).then(function (body) {
-          showError(res.status === 409 ? "上一条还在进行" : String((body && body.error) || res.status));
+          showError(res.status === 409 ? S().busy : String((body && body.error) || res.status));
           finishSend();
         });
       }
@@ -293,22 +783,66 @@
       finishSend();
     });
   }
-
-  button.addEventListener("click", send);
+  document.documentElement.classList.add("js");
+  applyLang(false);
+  syncComposer();
+  window.addEventListener("resize", syncComposer);
+  sendBtn.addEventListener("click", send);
   input.addEventListener("keydown", function (event) {
-    if (event.key === "Enter") send();
+    if (event.key === "Enter" && !event.isComposing) send();
   });
-
+  document.querySelector(".lang-switch").addEventListener("click", function (event) {
+    var button = event.target && event.target.closest ? event.target.closest("button[data-lang]") : null;
+    if (!button) return;
+    var next = button.getAttribute("data-lang");
+    if (next === "en" || next === "zh-CN") setLang(next);
+  });
+  document.getElementById("composer").addEventListener("click", function (event) {
+    var button = event.target && event.target.closest ? event.target.closest("[data-example]") : null;
+    if (!button) return;
+    var key = button.getAttribute("data-example");
+    input.value = (key && S()[key]) || "";
+    input.focus();
+  });
+  document.addEventListener("click", function (event) {
+    var target = event.target;
+    var button = target && target.closest ? target.closest("button.copy") : null;
+    if (!button) return;
+    var value = button.getAttribute("data-copy") || "";
+    var original = button.getAttribute("aria-label");
+    function done() {
+      button.classList.add("is-copied");
+      button.setAttribute("aria-label", S().copied);
+      button.setAttribute("title", S().copied);
+      setTimeout(function () {
+        button.classList.remove("is-copied");
+        if (original != null) {
+          button.setAttribute("aria-label", original);
+          button.setAttribute("title", original);
+        }
+      }, 1500);
+    }
+    function selectText() {
+      var selection = window.getSelection && window.getSelection();
+      var prev = button.previousElementSibling;
+      if (selection && prev) selection.selectAllChildren(prev);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(value).then(done, selectText);
+    else selectText();
+  });
   fetch("/config").then(function (res) { return res.json(); }).then(function (config) {
-    serveOrigin = config.serveOrigin;
-    providerEl.textContent = "provider: " + config.provider;
-    consoleLink.setAttribute("href", serveOrigin + "/");
+    serveOrigin = config.serveOrigin || "";
+    providerName = config.provider || "";
+    paintProvider();
+    var consoleLink = document.getElementById("console");
+    if (consoleLink && serveOrigin) consoleLink.setAttribute("href", serveOrigin + "/");
     input.disabled = false;
-    button.disabled = false;
+    sendBtn.disabled = false;
     refreshPending();
     setInterval(refreshPending, 2000);
-  }).catch(function (error) {
-    showError(error && error.message ? error.message : "config failed");
+    syncComposer();
+  }).catch(function () {
+    showError(S().configFailed);
   });
 })();
 </script>
