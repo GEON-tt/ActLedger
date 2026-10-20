@@ -4,7 +4,16 @@
 
 ActLedger records agent actions that you choose to integrate. A policy decides whether a call is allowed, held for approval, denied, or kept as a draft. Each transition is appended as a signed receipt that `actledger verify` can check offline.
 
-0.1.0 is not published. These commands run from a clone.
+0.1.0 is on npm and PyPI.
+
+## Install
+
+```bash
+npm i -g @actledger/cli
+pip install actledger
+```
+
+The npm package is the CLI. The PyPI package is the Python SDK. Local mode starts `actledger rpc`, so the CLI has to be on `PATH`.
 
 ## Requirements
 
@@ -81,7 +90,7 @@ A receipt says who started the action, which rule fired, who approved it and at 
 
 ## After publishing
 
-When the packages are on npm:
+Without a global install:
 
 ```bash
 npx -y @actledger/cli init
@@ -95,6 +104,6 @@ npx @actledger/cli export --dir .actledger > receipts.jsonl
 npx @actledger/cli verify receipts.jsonl --keys .actledger/keys.json
 ```
 
-Python, after a PyPI release: `pip install actledger`. This repository is not uploaded yet.
+Python: `pip install actledger`.
 
 Field-level rules: [the specification](../../spec/README.md). How the pieces fit: [architecture.md](architecture.md).

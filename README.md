@@ -6,7 +6,14 @@ ActLedger checks an agent's tool call against a policy, holds it for a person to
 
 ## Try it
 
-0.1.0 is not published yet. From a clone, with Node.js 22.13+ and pnpm 9:
+0.1.0 is on npm and PyPI.
+
+```bash
+npm i -g @actledger/cli
+pip install actledger
+```
+
+The chat demo runs from a clone. It needs Node.js 22.13+ and pnpm 9:
 
 ```bash
 git clone https://github.com/GEON-tt/ActLedger.git

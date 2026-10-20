@@ -2,11 +2,18 @@
 
 # Python SDK
 
-`actledger` 包负责校验回执，并驱动本地账本。它不重写引擎。`Ledger(mode="local", dir=...)` 启动 TypeScript CLI 的 `actledger rpc`，一行一个 JSON。在克隆里使用客户端之前，先 `pnpm install`。
+`actledger` 包负责校验回执，并驱动本地账本。它不重写引擎。`Ledger(mode="local", dir=...)` 启动 TypeScript CLI 的 `actledger rpc`，一行一个 JSON。
 
-Python 3.10 或更新。运行时依赖 `cryptography`。还没有上传到 PyPI。
+Python 3.10 或更新。运行时依赖 `cryptography`。
 
 ## 安装
+
+```bash
+pip install actledger
+npm i -g @actledger/cli
+```
+
+本地模式需要 `PATH` 上有 `actledger`。从克隆做可编辑安装：
 
 ```bash
 python3 -m venv python/.venv

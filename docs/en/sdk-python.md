@@ -2,11 +2,18 @@
 
 # Python SDK
 
-The `actledger` package verifies receipts and drives a local ledger. It does not reimplement the engine. `Ledger(mode="local", dir=...)` starts `actledger rpc` from the TypeScript CLI and speaks one JSON object per line. Install Node dependencies with `pnpm install` before using the client from a clone.
+The `actledger` package verifies receipts and drives a local ledger. It does not reimplement the engine. `Ledger(mode="local", dir=...)` starts `actledger rpc` from the TypeScript CLI and speaks one JSON object per line.
 
-Python 3.10 or newer. Runtime dependency: `cryptography`. Not uploaded to PyPI yet.
+Python 3.10 or newer. Runtime dependency: `cryptography`.
 
 ## Install
+
+```bash
+pip install actledger
+npm i -g @actledger/cli
+```
+
+Local mode needs `actledger` on `PATH`. From a clone, an editable install is:
 
 ```bash
 python3 -m venv python/.venv

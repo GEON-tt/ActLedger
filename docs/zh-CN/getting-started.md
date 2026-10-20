@@ -4,7 +4,16 @@
 
 ActLedger 记录你主动接入的 agent 动作。策略决定一次调用是放行、等待批准、拒绝，还是只保留草稿。每次状态迁移都追加一条签名回执，`actledger verify` 可以离线校验。
 
-0.1.0 还没有发布。下面的命令从克隆的源码运行。
+0.1.0 已发布到 npm 和 PyPI。
+
+## 安装
+
+```bash
+npm i -g @actledger/cli
+pip install actledger
+```
+
+npm 上的包是 CLI。PyPI 上的包是 Python SDK。本地模式会启动 `actledger rpc`，所以 CLI 必须在 `PATH` 上。
 
 ## 环境
 
@@ -81,7 +90,7 @@ ACTLEDGER_WEBHOOK_SECRET=dev-secret pnpm exec tsx examples/webhook-receiver/run.
 
 ## 发布后
 
-包发到 npm 之后：
+不全局安装时：
 
 ```bash
 npx -y @actledger/cli init
@@ -95,6 +104,6 @@ npx @actledger/cli export --dir .actledger > receipts.jsonl
 npx @actledger/cli verify receipts.jsonl --keys .actledger/keys.json
 ```
 
-Python 在发到 PyPI 之后可以用 `pip install actledger`。本仓库目前不上传。
+Python：`pip install actledger`。
 
 字段规则见[规范](../../spec/zh-CN/README.md)。各部分怎么拼在一起见 [architecture.md](architecture.md)。

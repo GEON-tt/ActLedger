@@ -6,7 +6,14 @@ ActLedger 先按策略检查 agent 的工具调用，在工具运行前交给人
 
 ## 试一下
 
-0.1.0 还没有发布。从克隆运行，需要 Node.js 22.13+ 和 pnpm 9：
+0.1.0 已发布到 npm 和 PyPI。
+
+```bash
+npm i -g @actledger/cli
+pip install actledger
+```
+
+对话 demo 从克隆运行，需要 Node.js 22.13+ 和 pnpm 9：
 
 ```bash
 git clone https://github.com/GEON-tt/ActLedger.git

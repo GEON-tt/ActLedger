@@ -6,7 +6,12 @@ Receipt verifier, local ledger client, and an optional LangGraph adapter. The ru
 
 ## Install
 
-From a clone of this repository:
+```bash
+pip install actledger
+npm i -g @actledger/cli
+```
+
+Local mode needs `actledger` on `PATH`. From a clone of this repository:
 
 ```bash
 python3 -m venv .venv
@@ -31,7 +36,7 @@ With the OpenAI Agents SDK adapter:
 .venv/bin/python -m pip install -e "./python[test,openai-agents]"
 ```
 
-Python `>=3.10`. Use the stdlib `venv` and `pip`. This package is not uploaded to PyPI yet.
+Python `>=3.10`. Use the stdlib `venv` and `pip`. `actledger` 0.1.0 is on PyPI.
 
 ## Verify
 
@@ -99,7 +104,7 @@ Longer guide: <https://github.com/GEON-tt/ActLedger/blob/main/docs/en/sdk-python
 
 回执校验器、本地账本客户端，以及可选的 LangGraph、Claude Agent SDK 和 OpenAI Agents SDK 适配器。入口是 `python -m actledger`，不是和 npm 包同名的 console script。Claude 适配器需要 `pip install -e "./python[claude]"`。OpenAI Agents 适配器需要 `pip install -e "./python[openai-agents]"`。没装对应 extra 时，标了 `claude` 或 `openai_agents` 的测试会跳过；CI 里安装了这些 extra 的任务会设置 `ACTLEDGER_REQUIRE_CLAUDE=1` 和 `ACTLEDGER_REQUIRE_OPENAI=1`。真实模型冒烟测试还需要 `ANTHROPIC_API_KEY` 或 `OPENAI_API_KEY`，没有密钥就跳过。
 
-在仓库根：
+`pip install actledger`，并安装 `@actledger/cli`。在仓库根做可编辑安装：
 
 ```bash
 python3 -m venv python/.venv
