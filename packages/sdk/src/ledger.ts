@@ -32,16 +32,20 @@ export function isTerminal(state: string): boolean {
   return coreIsTerminal(state as State);
 }
 
+type MaybePromise<T> = T | Promise<T>;
+
+export interface ClaimedTask {
+  task: TaskView;
+  approvedPayload: Payload;
+  approvedPayloadHash: string;
+  executionDeadline: string;
+  receipt: Receipt;
+}
+
 export interface Transport {
-  request(input: RequestInput): { task: TaskView; receipts: Receipt[] };
-  getTask(id: string): TaskView | null;
-  claim(id: string, opts?: { idempotencyKey?: string }): {
-    task: TaskView;
-    approvedPayload: Payload;
-    approvedPayloadHash: string;
-    executionDeadline: string;
-    receipt: Receipt;
-  };
+  request(input: RequestInput): MaybePromise<{ task: TaskView; receipts: Receipt[] }>;
+  getTask(id: string): MaybePromise<TaskView | null>;
+  claim(id: string, opts?: { idempotencyKey?: string }): MaybePromise<ClaimedTask>;
   complete(
     id: string,
     input: {
@@ -50,15 +54,16 @@ export interface Transport {
       result?: Record<string, unknown>;
       idempotencyKey?: string;
     },
-  ): CompleteResult;
+  ): MaybePromise<CompleteResult>;
   fail(
     id: string,
     input: { error: { code: string; message: string; retryable?: boolean }; idempotencyKey?: string },
-  ): { task: TaskView; receipt: Receipt };
-  revoke(id: string, input: { reason?: string; idempotencyKey?: string }): { task: TaskView; receipt: Receipt };
-  sweep?(): void;
-  setCoverageOverlay?(entries: CoverageEntry[]): Receipt | null;
-  close(): void;
+  ): MaybePromise<{ task: TaskView; receipt: Receipt }>;
+  revoke(id: string, input: { reason?: string; idempotencyKey?: string }): MaybePromise<{ task: TaskView; receipt: Receipt }>;
+  /** May return a promise. The resolved value is ignored. */
+  sweep?(): unknown;
+  setCoverageOverlay?(entries: CoverageEntry[]): MaybePromise<Receipt | null>;
+  close(): MaybePromise<void>;
 }
 
 export interface LedgerOptions {
@@ -155,13 +160,7 @@ export class Run {
   constructor(
     private readonly ledger: Ledger,
     private readonly transport: Transport,
-    private readonly claimed: {
-      task: TaskView;
-      approvedPayload: Payload;
-      approvedPayloadHash: string;
-      executionDeadline: string;
-      receipt: Receipt;
-    },
+    private readonly claimed: ClaimedTask,
   ) {}
 
   get taskId(): string {
@@ -189,7 +188,7 @@ export class Run {
       throw new ContentMismatch();
     }
     try {
-      const result = this.transport.complete(this.taskId, {
+      const result = await this.transport.complete(this.taskId, {
         ...input,
         idempotencyKey: input.idempotencyKey ?? uuidv7(),
       });
@@ -201,7 +200,7 @@ export class Run {
   }
 
   async fail(input: { error: { code: string; message: string; retryable?: boolean } }): Promise<void> {
-    this.transport.fail(this.taskId, { ...input, idempotencyKey: uuidv7() });
+    await this.transport.fail(this.taskId, { ...input, idempotencyKey: uuidv7() });
   }
 }
 
@@ -296,8 +295,8 @@ export class TaskHandle {
     const start = Date.now();
     let current = this.data;
     while (current.state === "pending_approval") {
-      this.transport.sweep?.();
-      const next = this.transport.getTask(this.id);
+      await this.transport.sweep?.();
+      const next = await this.transport.getTask(this.id);
       if (!next) throw new LedgerError("not_found", `task ${this.id} not found`, 404);
       current = next;
       if (current.state !== "pending_approval") break;
@@ -315,7 +314,7 @@ export class TaskHandle {
 
   async claim(): Promise<Run> {
     if (this.degraded) throw new LedgerUnavailable("degraded read-only task cannot be claimed");
-    const claimed = this.transport.claim(this.id, { idempotencyKey: uuidv7() });
+    const claimed = await this.transport.claim(this.id, { idempotencyKey: uuidv7() });
     return new Run(this.ledger, this.transport, claimed);
   }
 }
@@ -349,7 +348,7 @@ export class Ledger {
 
   async request(input: RequestInput & { readOnly?: boolean }): Promise<TaskHandle> {
     try {
-      const result = this.transport.request({
+      const result = await this.transport.request({
         ...input,
         idempotencyKey: input.idempotencyKey ?? uuidv7(),
       });
@@ -367,7 +366,7 @@ export class Ledger {
 
   async getTask(id: string): Promise<TaskHandle | null> {
     try {
-      const task = this.transport.getTask(id);
+      const task = await this.transport.getTask(id);
       return task ? new TaskHandle(this, this.transport, task) : null;
     } catch (error) {
       if ((unavailable(error) || error instanceof LedgerUnavailable) && this.onUnavailable === "allow_read_only") {
@@ -379,18 +378,19 @@ export class Ledger {
   }
 
   async revoke(id: string, reason?: string): Promise<void> {
-    this.transport.revoke(id, { reason, idempotencyKey: uuidv7() });
+    await this.transport.revoke(id, { reason, idempotencyKey: uuidv7() });
   }
 
-  sweep(): void {
-    this.transport.sweep?.();
+  /** Runs the transport sweep. A local transport sweeps synchronously before this returns. */
+  sweep(): Promise<void> {
+    return Promise.resolve(this.transport.sweep?.()).then(() => undefined);
   }
 
-  setCoverageOverlay(entries: CoverageEntry[]): void {
+  setCoverageOverlay(entries: CoverageEntry[]): Promise<void> {
     if (!this.transport.setCoverageOverlay) {
       throw new LedgerError("invalid_request", "transport does not support coverage overlay", 400);
     }
-    this.transport.setCoverageOverlay(entries);
+    return Promise.resolve(this.transport.setCoverageOverlay(entries)).then(() => undefined);
   }
 
   guard<A, R>(spec: GuardSpec<A>, fn: (args: A, ctx: GuardContext) => Promise<R> | R) {
@@ -444,8 +444,9 @@ export class Ledger {
     };
   }
 
-  close(): void {
-    this.transport.close();
+  /** A local transport closes synchronously before this returns. */
+  close(): Promise<void> {
+    return Promise.resolve(this.transport.close());
   }
 }
 

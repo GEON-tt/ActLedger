@@ -17,6 +17,7 @@
   "bin": { "actledger": "./dist/main.js" },
   "exports": {
     "./serve": { "types": "./dist/serve/server.d.ts", "import": "./dist/serve/server.js" },
+    "./console": { "types": "./dist/serve/console.d.ts", "import": "./dist/serve/console.js" },
     "./package.json": "./package.json"
   },
   "files": ["dist"],

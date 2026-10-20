@@ -1,5 +1,5 @@
 import type { State } from "@actledger/core";
-import { isMessageKey, t, type Locale, type MessageKey } from "./i18n.js";
+import { isMessageKey, t, tv, type ConsoleVariant, type Locale, type MessageKey } from "./i18n.js";
 
 export function escapeHtml(value: string): string {
   return value
@@ -294,6 +294,10 @@ body[data-page="list"] .app-header-inner, body[data-page="list"] .container { ma
   .clip, .col-args .clip { max-width: 60vw; }
   .c-task, .c-action, .c-level, .c-state, .c-principal, .c-created, .c-expires, .c-args, .c-intent { width: auto; }
 }
+.login-card { max-width: 400px; margin: 40px auto 0; }
+.login-form { display: grid; gap: 6px; margin-top: 16px; }
+.login-form input { font: inherit; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); margin-bottom: 8px; }
+.login-form button { justify-content: center; margin-top: 8px; }
 `;
 
 const STYLE = `[hidden]{display:none !important}\n${TOKENS_CSS}\n${CONSOLE_CSS}`;
@@ -391,6 +395,7 @@ interface Frame {
   brandHref: string | null;
   script: boolean;
   i18n: Record<string, string> | null;
+  variant: ConsoleVariant;
 }
 
 const I18N_STATES = [
@@ -407,11 +412,11 @@ const I18N_STATES = [
   "revoked",
 ] as const;
 
-function consoleMessages(locale: Locale): Record<string, string> {
+function consoleMessages(locale: Locale, variant: ConsoleVariant): Record<string, string> {
   const messages: Record<string, string> = {
     updated: t(locale, "list.updated"),
     "update-failed": t(locale, "list.updateFailed"),
-    "session-ended": t(locale, "list.sessionEnded"),
+    "session-ended": tv(locale, variant, "list.sessionEnded"),
     expires: t(locale, "time.expires"),
     expired: t(locale, "time.expired"),
     none: t(locale, "time.none"),
@@ -436,7 +441,7 @@ function dataAttrs(attrs: Record<string, string>): string {
 
 function page(frame: Frame, main: string): string {
   const bodyAttrs = dataAttrs(frame.bodyAttrs);
-  const brandInner = `${icon(ICON_BRAND, 22)}<span class="brand-name">${escapeHtml(t(frame.locale, "app.name"))}</span><span class="brand-sub">${escapeHtml(t(frame.locale, "app.subtitle"))}</span>`;
+  const brandInner = `${icon(ICON_BRAND, 22)}<span class="brand-name">${escapeHtml(t(frame.locale, "app.name"))}</span><span class="brand-sub">${escapeHtml(tv(frame.locale, frame.variant, "app.subtitle"))}</span>`;
   const brand = frame.brandHref
     ? `<a class="brand" href="${escapeHtml(frame.brandHref)}">${brandInner}</a>`
     : `<span class="brand">${brandInner}</span>`;
@@ -469,7 +474,7 @@ ${actions}
 <main class="container">
 ${main}
 </main>
-<footer class="app-footer"><p>${icon(ICON_LOCK, 14)} ${escapeHtml(t(frame.locale, "app.footer"))}</p></footer>
+<footer class="app-footer"><p>${icon(ICON_LOCK, 14)} ${escapeHtml(tv(frame.locale, frame.variant, "app.footer"))}</p></footer>
 ${i18n}
 ${script}
 </body>
@@ -550,8 +555,9 @@ function jsonActionType(actionJson: string): string {
 
 export function renderList(
   locale: Locale,
-  input: { tab: Tab; rows: ListRow[]; csrf: string; counts: Record<Tab, number>; now: string },
+  input: { tab: Tab; rows: ListRow[]; csrf: string; counts: Record<Tab, number>; now: string; variant?: ConsoleVariant },
 ): string {
+  const variant = input.variant ?? "local";
   const tab = input.tab;
   const cols = {
     task: t(locale, "list.col.task"),
@@ -593,7 +599,7 @@ export function renderList(
 <h1 class="page-title">${escapeHtml(t(locale, titleKey))}</h1>
 <p class="updated" id="updated-at" aria-live="polite"><span class="live-dot" aria-hidden="true"></span><span id="updated-text">${withTime(t(locale, "list.updated"), input.now)}</span></p>
 </div>
-<div class="banner callout callout-danger" id="session-banner" role="alert" hidden>${icon(ICON_ALERT, 20)}<span>${escapeHtml(t(locale, "list.sessionEnded"))}</span></div>
+<div class="banner callout callout-danger" id="session-banner" role="alert" hidden>${icon(ICON_ALERT, 20)}<span>${escapeHtml(tv(locale, variant, "list.sessionEnded"))}</span></div>
 <nav class="tabs" aria-label="${escapeHtml(t(locale, "list.tabs"))}">
 <a class="tab" href="/?tab=pending"${tab === "pending" ? ` aria-current="page"` : ""}><span class="tab-label">${escapeHtml(t(locale, "list.tab.pending"))}</span><span class="tab-count" data-count-for="pending">${input.counts.pending}</span></a>
 <a class="tab" href="/?tab=recent"${tab === "recent" ? ` aria-current="page"` : ""}><span class="tab-label">${escapeHtml(t(locale, "list.tab.recent"))}</span><span class="tab-count" data-count-for="recent">${input.counts.recent}</span></a>
@@ -612,7 +618,7 @@ ${rows}
 <div class="empty" id="empty-state"${input.rows.length === 0 ? "" : " hidden"}>
 <span class="empty-icon">${icon(ICON_INBOX, 28)}</span>
 <h2 class="empty-title">${escapeHtml(t(locale, emptyTitle))}</h2>
-<p class="empty-hint">${escapeHtml(t(locale, emptyHint))}</p>
+<p class="empty-hint">${escapeHtml(tv(locale, variant, emptyHint))}</p>
 ${emptyLink}
 </div>
 </section>`;
@@ -625,7 +631,8 @@ ${emptyLink}
       csrf: input.csrf,
       brandHref: "/",
       script: true,
-      i18n: consoleMessages(locale),
+      i18n: consoleMessages(locale, variant),
+      variant,
     },
     main,
   );
@@ -752,7 +759,7 @@ ${submitButton(t(locale, "detail.reject"), options.rejectDisabled)}
 </section>`;
 }
 
-export function renderDetail(locale: Locale, task: TaskPage, now: string): string {
+export function renderDetail(locale: Locale, task: TaskPage, now: string, variant: ConsoleVariant = "local"): string {
   const level = task.level ? levelMarkup(task.level) : escapeHtml(t(locale, "time.none"));
   const summary = `<section class="card task-summary">
 <div class="summary-top">
@@ -778,7 +785,7 @@ ${statusBadge(locale, task.state)}
         body: task.args,
         payloadHash: task.payloadHash,
         copyHash: true,
-        editNote: task.allowEdit ? t(locale, "detail.editNote", { id: task.id }) : "",
+        editNote: task.allowEdit ? tv(locale, variant, "detail.editNote", { id: task.id }) : "",
         hints: task.hints,
         approveDisabled: task.approveDisabled,
         rejectDisabled: task.rejectDisabled,
@@ -806,7 +813,8 @@ ${detailRaw(locale, task)}`;
       csrf: task.csrf,
       brandHref: "/",
       script: true,
-      i18n: consoleMessages(locale),
+      i18n: consoleMessages(locale, variant),
+      variant,
     },
     main,
   );
@@ -877,6 +885,7 @@ ${tech("payload_hash", pageInput.payloadHash, true)}
       brandHref: null,
       script: false,
       i18n: null,
+      variant: "local",
     },
     `${summary}\n${panel}\n${raw}`,
   );
@@ -896,6 +905,7 @@ export function renderLinkStatus(locale: Locale, id: string, state: string | nul
       brandHref: null,
       script: false,
       i18n: null,
+      variant: "local",
     },
     body,
   );
@@ -922,13 +932,22 @@ export function renderResult(locale: Locale, id: string, state: string, receiptH
       brandHref: null,
       script: false,
       i18n: null,
+      variant: "local",
     },
     body,
   );
 }
 
-export function renderLoginEnded(locale: Locale): string {
-  const body = `<section class="card notice-card">
+export function renderLoginEnded(locale: Locale, variant: ConsoleVariant = "local"): string {
+  const body =
+    variant === "remote"
+      ? `<section class="card notice-card">
+<span class="notice-icon tone-muted">${icon(ICON_LOCK, 28)}</span>
+<h1 class="page-title">${escapeHtml(t(locale, "loginEnded.title"))}</h1>
+<p>${escapeHtml(tv(locale, "remote", "loginEnded.body"))}</p>
+<p><a class="btn btn-primary btn-sm" href="/login">${escapeHtml(t(locale, "login.again"))}</a></p>
+</section>`
+      : `<section class="card notice-card">
 <span class="notice-icon tone-muted">${icon(ICON_LOCK, 28)}</span>
 <h1 class="page-title">${escapeHtml(t(locale, "loginEnded.title"))}</h1>
 <p>${emphasizeCommand(t(locale, "loginEnded.body"))}</p>
@@ -943,12 +962,49 @@ export function renderLoginEnded(locale: Locale): string {
       brandHref: null,
       script: false,
       i18n: null,
+      variant,
     },
     body,
   );
 }
 
-export function renderError(locale: Locale, code: string, message: string): string {
+export function renderLogin(
+  locale: Locale,
+  input: { error: "login.failed" | "login.limited" | null; username: string },
+): string {
+  const error = input.error
+    ? `<div class="callout callout-danger" role="alert">${icon(ICON_ALERT, 20)}<span>${escapeHtml(t(locale, input.error))}</span></div>`
+    : "";
+  const body = `<section class="card login-card">
+<h1 class="page-title">${escapeHtml(t(locale, "login.title"))}</h1>
+${error}
+<form class="login-form" method="post" action="/login">
+<label class="field-label" for="username">${escapeHtml(t(locale, "login.username"))}</label>
+<input id="username" name="username" autocomplete="username" required maxlength="64" value="${escapeHtml(input.username)}">
+<label class="field-label" for="password">${escapeHtml(t(locale, "login.password"))}</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256">
+<label class="field-label" for="totp">${escapeHtml(t(locale, "login.totp"))}</label>
+<input id="totp" name="totp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" required maxlength="7">
+<button type="submit" class="btn btn-primary">${escapeHtml(t(locale, "login.submit"))}</button>
+</form>
+</section>`;
+  return page(
+    {
+      locale,
+      title: t(locale, "login.docTitle"),
+      bodyAttrs: { page: "login" },
+      langHrefs: { en: "/login?lang=en", "zh-CN": "/login?lang=zh-CN" },
+      csrf: null,
+      brandHref: null,
+      script: false,
+      i18n: null,
+      variant: "remote",
+    },
+    body,
+  );
+}
+
+export function renderError(locale: Locale, code: string, message: string, variant: ConsoleVariant = "local"): string {
   const key = `error.explain.${code}`;
   const explain = isMessageKey(key) ? `<p class="error-explain">${escapeHtml(t(locale, key))}</p>` : "";
   const body = `<section class="card notice-card error-card">
@@ -969,6 +1025,7 @@ ${explain}
       brandHref: null,
       script: false,
       i18n: null,
+      variant,
     },
     body,
   );

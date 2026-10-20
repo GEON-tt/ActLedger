@@ -2,6 +2,7 @@ import type http from "node:http";
 import { parseCookies } from "./auth.js";
 
 export type Locale = "en" | "zh-CN";
+export type ConsoleVariant = "local" | "remote";
 export const LANG_COOKIE = "actledger_lang";
 
 const EN = {
@@ -159,6 +160,26 @@ const EN = {
   "error.explain.link_expired": "This approval link has expired.",
   "error.explain.link_used": "This approval link has already been used.",
   "error.explain.nonce_failed": "The form is out of date. Open the link again.",
+  "remote.app.subtitle": "Approval console",
+  "remote.app.footer": "Every decision is written to the server ledger as a signed receipt.",
+  "remote.list.sessionEnded": "Session ended. Log in again.",
+  "remote.list.empty.recent.hint": "Approvals and rejections you make here show up here.",
+  "remote.loginEnded.body": "Your session on this console has ended.",
+  "remote.hint.channel": "This policy does not allow approving on this console.",
+  "remote.hint.assurance":
+    "Approve is disabled: this action needs {min} assurance, and this console can only record app_asserted. You can still reject it here with a reason.",
+  "remote.hint.stepUp":
+    "Approve is disabled: this action needs step-up {stepUp}, which this console cannot collect. You can still reject it here with a reason.",
+  "remote.detail.editNote": "Editing before approval is not available on this console. This page approves the payload exactly as shown.",
+  "login.docTitle": "Log in",
+  "login.title": "Log in to approve",
+  "login.username": "Username",
+  "login.password": "Password",
+  "login.totp": "Authenticator code",
+  "login.submit": "Log in",
+  "login.failed": "Wrong username, password, or authenticator code.",
+  "login.limited": "Too many failed attempts. Wait a few minutes and try again.",
+  "login.again": "Log in again",
 } as const;
 
 export type MessageKey = keyof typeof EN;
@@ -314,6 +335,25 @@ const ZH_CN: Record<MessageKey, string> = {
   "error.explain.link_expired": "审批链接已过期。",
   "error.explain.link_used": "审批链接已经用过了。",
   "error.explain.nonce_failed": "表单已过期，请重新打开链接。",
+  "remote.app.subtitle": "审批台",
+  "remote.app.footer": "每个决定都会作为签名回执写入服务器账本。",
+  "remote.list.sessionEnded": "会话已结束，请重新登录。",
+  "remote.list.empty.recent.hint": "你在这里做出的批准和拒绝会显示在这里。",
+  "remote.loginEnded.body": "你在本审批台的会话已结束。",
+  "remote.hint.channel": "策略不允许在本审批台审批。",
+  "remote.hint.assurance":
+    "批准已禁用：这个操作需要 {min} 级别的确认，本审批台只能记录 app_asserted。你仍然可以在这里写明理由后拒绝。",
+  "remote.hint.stepUp": "批准已禁用：这个操作需要 step-up {stepUp}，本审批台无法收集。你仍然可以在这里写明理由后拒绝。",
+  "remote.detail.editNote": "本审批台不支持批准前修改内容。本页按显示的内容原样批准。",
+  "login.docTitle": "登录",
+  "login.title": "登录审批台",
+  "login.username": "用户名",
+  "login.password": "密码",
+  "login.totp": "验证器动态码",
+  "login.submit": "登录",
+  "login.failed": "用户名、密码或动态码不正确。",
+  "login.limited": "失败次数过多，请几分钟后再试。",
+  "login.again": "重新登录",
 };
 
 export { EN, ZH_CN };
@@ -390,4 +430,13 @@ export function t(locale: Locale, key: MessageKey, vars?: Record<string, string 
   return template.replace(/\{(\w+)\}/g, (match, name: string) =>
     vars && name in vars ? String(vars[name]) : match,
   );
+}
+
+/** Like t(), but a "remote" console uses `remote.<key>` when that key exists. */
+export function tv(locale: Locale, variant: ConsoleVariant, key: MessageKey, vars?: Record<string, string | number>): string {
+  if (variant === "remote") {
+    const remote = `remote.${key}`;
+    if (isMessageKey(remote)) return t(locale, remote, vars);
+  }
+  return t(locale, key, vars);
 }

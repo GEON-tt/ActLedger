@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { initLocalDir, LedgerError, openLedger } from "@actledger/core";
+import { initLocalDir, LedgerError, openLedger, type LedgerEngine } from "@actledger/core";
 import {
   ApprovalExpired,
   ApprovalRejected,
@@ -15,6 +15,26 @@ import {
 } from "../src/index";
 
 const dirs: string[] = [];
+
+function asyncTransport(engine: LedgerEngine): Transport {
+  return {
+    request: async (input) => engine.request(input),
+    getTask: async (id) => engine.getTask(id),
+    claim: async (id, opts) => engine.claim(id, opts),
+    complete: async (id, input) => engine.complete(id, input),
+    fail: async (id, input) => engine.fail(id, input),
+    revoke: async (id, input) => {
+      const task = engine.getTask(id);
+      return engine.revoke(id, {
+        actor: { type: "agent", id: task?.agentId ?? "local-agent" },
+        reason: input.reason,
+        idempotencyKey: input.idempotencyKey,
+      });
+    },
+    sweep: async () => engine.sweep(),
+    close: async () => engine.close(),
+  };
+}
 
 function localDir(policy?: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "actl-sdk-"));
@@ -299,6 +319,177 @@ describe("sdk", () => {
     expect(failCalls).toBe(0);
     expect(engine.listTasks()[0]?.state).toBe("executing");
     ledger.close();
+  });
+
+  it("awaits an async transport end to end", async () => {
+    const dir = localDir();
+    const engine = openLedger({ dir });
+    const ledger = new Ledger({ transport: asyncTransport(engine) });
+    let called = false;
+    const guarded = ledger.guard(
+      {
+        action: "calendar.create",
+        principal: () => "u_1",
+        payload: () => ({ action: "calendar.create", args: { title: "standup" } }),
+      },
+      async () => {
+        called = true;
+        return "created";
+      },
+    );
+    await expect(guarded(undefined)).resolves.toBe("created");
+    expect(called).toBe(true);
+    expect(engine.getTask(engine.listTasks()[0]?.id ?? "")?.state).toBe("executed");
+    await ledger.close();
+  });
+
+  it("keeps a task executing when an async complete rejects", async () => {
+    const dir = localDir();
+    const engine = openLedger({ dir });
+    let failCalls = 0;
+    let called = false;
+    const ledger = new Ledger({
+      strictContent: true,
+      transport: {
+        ...asyncTransport(engine),
+        complete: async () => {
+          throw new Error("complete failed");
+        },
+        fail: async (id, input) => {
+          failCalls += 1;
+          return engine.fail(id, input);
+        },
+      },
+    });
+    const guarded = ledger.guard(
+      {
+        action: "calendar.create",
+        principal: () => "u_1",
+        payload: () => ({ action: "calendar.create", args: { title: "standup" } }),
+      },
+      async () => {
+        called = true;
+        return "created";
+      },
+    );
+    await expect(guarded(undefined)).rejects.toThrow("complete failed");
+    expect(called).toBe(true);
+    expect(failCalls).toBe(0);
+    expect(engine.listTasks()[0]?.state).toBe("executing");
+    await ledger.close();
+  });
+
+  it("maps an async ledger_unavailable rejection", async () => {
+    const transport: Transport = {
+      request: async () => {
+        throw new LedgerError("ledger_unavailable", "down", 503);
+      },
+      getTask: async () => null,
+      claim: async () => {
+        throw new Error("claim");
+      },
+      complete: async () => {
+        throw new Error("complete");
+      },
+      fail: async () => {
+        throw new Error("fail");
+      },
+      revoke: async () => {
+        throw new Error("revoke");
+      },
+      close: () => undefined,
+    };
+    const input = {
+      principalId: "u_1",
+      action: { type: "email.read" },
+      payload: { action: "email.read", args: {} },
+      readOnly: true,
+    };
+    const denied = new Ledger({ transport });
+    await expect(denied.request(input)).rejects.toBeInstanceOf(LedgerUnavailable);
+    const allowed = new Ledger({ transport, onUnavailable: "allow_read_only" });
+    const handle = await allowed.request(input);
+    expect(handle.degraded).toBe(true);
+    await denied.close();
+    await allowed.close();
+  });
+
+  it("wait polls an async getTask and sweep", async () => {
+    const dir = localDir();
+    const engine = openLedger({ dir });
+    let sweeps = 0;
+    const ledger = new Ledger({
+      transport: {
+        ...asyncTransport(engine),
+        getTask: async (id) => engine.getTask(id),
+        sweep: async () => {
+          sweeps += 1;
+          return engine.sweep();
+        },
+      },
+    });
+    const handle = await ledger.request({
+      principalId: "u_1",
+      action: { type: "notes.create" },
+      payload: { action: "notes.create", args: { title: "n" } },
+    });
+    expect(handle.state).toBe("pending_approval");
+    setTimeout(() => {
+      engine.approve(handle.id, {
+        approverPrincipalId: "u_1",
+        channel: "cli",
+        assurance: "app_asserted",
+        presentedHash: handle.data.payloadHash,
+        simulated: false,
+      });
+    }, 30);
+    const done = await handle.wait({ pollMs: 10, timeoutMs: 5_000 });
+    expect(done.state).toBe("approved");
+    expect(sweeps).toBeGreaterThanOrEqual(1);
+    await ledger.close();
+  });
+
+  it("sweep, setCoverageOverlay and close run a local transport synchronously", async () => {
+    const dir = localDir();
+    const ledger = new Ledger({ mode: "local", dir });
+    const swept = ledger.sweep();
+    expect(swept).toBeInstanceOf(Promise);
+    const closing = ledger.close();
+    expect(closing).toBeInstanceOf(Promise);
+    const engine = openLedger({ dir });
+    const created = engine.request({
+      principalId: "u_1",
+      action: { type: "calendar.create" },
+      payload: { action: "calendar.create", args: { title: "later" } },
+    });
+    expect(created.task.state).toBe("approved");
+    engine.close();
+    await swept;
+    await closing;
+
+    const bare = new Ledger({
+      transport: {
+        request: () => {
+          throw new Error("request");
+        },
+        getTask: () => null,
+        claim: () => {
+          throw new Error("claim");
+        },
+        complete: () => {
+          throw new Error("complete");
+        },
+        fail: () => {
+          throw new Error("fail");
+        },
+        revoke: () => {
+          throw new Error("revoke");
+        },
+        close: () => undefined,
+      },
+    });
+    expect(() => bare.setCoverageOverlay([])).toThrow(LedgerError);
+    await bare.close();
   });
 });
 

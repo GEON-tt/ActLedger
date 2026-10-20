@@ -11,7 +11,9 @@
       "@actledger/mcp-proxy": ["./packages/mcp-proxy/src/index.ts"],
       "@actledger/claude-agent-sdk": ["./packages/claude-agent-sdk/src/index.ts"],
       "@actledger/openai-agents": ["./packages/openai-agents/src/index.ts"],
-      "@actledger/cli/serve": ["./packages/cli/src/serve/server.ts"]
+      "@actledger/cli/serve": ["./packages/cli/src/serve/server.ts"],
+      "@actledger/cli/console": ["./packages/cli/src/serve/console.ts"],
+      "@actledger/server": ["./packages/server/src/index.ts"]
     }
   },
   "include": [

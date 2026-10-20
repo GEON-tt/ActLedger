@@ -14,6 +14,7 @@
     "pack:check": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx scripts/pack-check.ts",
     "changeset": "changeset",
     "actledger": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx packages/cli/src/main.ts",
+    "actledger-server": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx packages/server/src/main.ts",
     "demo": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx examples/chat-approval/run.ts",
     "mcp-proxy": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx packages/mcp-proxy/src/main.ts",
     "vectors": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' tsx scripts/gen-vectors.ts"

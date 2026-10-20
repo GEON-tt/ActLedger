@@ -25,6 +25,8 @@ export default defineConfig({
       { find: /^@actledger\/claude-agent-sdk$/, replacement: src("./packages/claude-agent-sdk/src/index.ts") },
       { find: /^@actledger\/openai-agents$/, replacement: src("./packages/openai-agents/src/index.ts") },
       { find: /^@actledger\/cli\/serve$/, replacement: src("./packages/cli/src/serve/server.ts") },
+      { find: /^@actledger\/cli\/console$/, replacement: src("./packages/cli/src/serve/console.ts") },
+      { find: /^@actledger\/server$/, replacement: src("./packages/server/src/index.ts") },
     ],
   },
   test: {

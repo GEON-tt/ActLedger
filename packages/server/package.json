@@ -1,0 +1,30 @@
+{
+  "name": "@actledger/server",
+  "version": "0.1.0",
+  "description": "ActLedger server: hosted ledger, agent API, and a password + TOTP approval console",
+  "license": "Apache-2.0",
+  "author": "ActLedger contributors",
+  "keywords": ["actledger", "server", "approval", "ledger", "totp"],
+  "repository": { "type": "git", "url": "git+https://github.com/GEON-tt/ActLedger.git", "directory": "packages/server" },
+  "bugs": { "url": "https://github.com/GEON-tt/ActLedger/issues" },
+  "homepage": "https://github.com/GEON-tt/ActLedger/tree/main/packages/server#readme",
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "types": "./dist/index.d.ts",
+  "bin": { "actledger-server": "./dist/main.js" },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "publishConfig": { "access": "public" },
+  "dependencies": {
+    "@actledger/cli": "workspace:*",
+    "@actledger/core": "workspace:*",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

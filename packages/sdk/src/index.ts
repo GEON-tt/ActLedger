@@ -11,6 +11,7 @@ export {
   LedgerError,
   isTerminal,
   initLocal,
+  type ClaimedTask,
   type Transport,
   type LedgerOptions,
   type GuardSpec,

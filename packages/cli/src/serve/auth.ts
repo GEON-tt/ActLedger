@@ -24,12 +24,12 @@ export function parseCookies(header: string | undefined): Map<string, string> {
   return cookies;
 }
 
-export function sessionCookie(id: string): string {
-  return `actledger_session=${id}; HttpOnly; SameSite=Strict; Path=/`;
+export function sessionCookie(id: string, opts?: { secure?: boolean }): string {
+  return `actledger_session=${id}; HttpOnly; SameSite=Strict; Path=/${opts?.secure ? "; Secure" : ""}`;
 }
 
-export function clearSessionCookie(): string {
-  return "actledger_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0";
+export function clearSessionCookie(opts?: { secure?: boolean }): string {
+  return `actledger_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${opts?.secure ? "; Secure" : ""}`;
 }
 
 export interface LoginSource {
