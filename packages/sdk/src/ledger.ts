@@ -22,7 +22,8 @@ import {
   ContentMismatch,
   LedgerUnavailable,
 } from "./errors.js";
-import { createToolGate } from "./gate.js";
+import { approveHint, createToolGate, type ApproveRequirements } from "./gate.js";
+import { RemoteTransport, remoteApproveHint, resolveRemoteConfig } from "./remote.js";
 
 export { LedgerError };
 export { verifyWebhook, type WebhookEvent } from "./webhook.js";
@@ -67,13 +68,25 @@ export interface Transport {
 }
 
 export interface LedgerOptions {
-  mode?: "local";
+  mode?: "local" | "remote";
   dir?: string;
+  /** Remote URL. Default process.env.ACTLEDGER_URL. Used only when mode is "remote". */
+  url?: string;
+  /** Remote bearer key. Default process.env.ACTLEDGER_API_KEY. Used only when mode is "remote". */
+  apiKey?: string;
+  /** Remote per-request timeout. Default 30_000. */
+  requestTimeoutMs?: number;
+  /** Remote: allow http:// to a non-loopback host. Default false. */
+  allowInsecureHttp?: boolean;
+  /** Default poll interval for wait(). Local 200, remote 1000. */
+  pollMs?: number;
   strictContent?: boolean;
   onUnavailable?: "deny" | "allow_read_only";
   now?: () => Date;
   transport?: Transport;
   coverageOverlay?: CoverageEntry[];
+  /** Remote: injectable for tests. Default globalThis.fetch. */
+  fetch?: typeof fetch;
 }
 
 export interface GuardContext {
@@ -291,7 +304,7 @@ export class TaskHandle {
   async wait(opts?: { timeoutMs?: number; pollMs?: number }): Promise<TaskHandle> {
     if (this.degraded) return this;
     const timeoutMs = opts?.timeoutMs ?? 15 * 60_000;
-    const pollMs = opts?.pollMs ?? 200;
+    const pollMs = opts?.pollMs ?? this.ledger.pollMs;
     const start = Date.now();
     let current = this.data;
     while (current.state === "pending_approval") {
@@ -322,7 +335,11 @@ export class TaskHandle {
 export class Ledger {
   readonly strictContent: boolean;
   readonly onUnavailable: "deny" | "allow_read_only";
+  readonly mode: "local" | "remote" | "custom";
   readonly dir: string | null;
+  /** Remote: normalized URL with no trailing slash. Otherwise null. */
+  readonly consoleUrl: string | null;
+  readonly pollMs: number;
   private readonly transport: Transport;
 
   constructor(opts: LedgerOptions) {
@@ -331,8 +348,24 @@ export class Ledger {
     if (opts.transport) {
       this.transport = opts.transport;
       this.dir = null;
+      this.mode = "custom";
+      this.consoleUrl = null;
+      this.pollMs = opts.pollMs ?? 200;
+    } else if (opts.mode === "remote") {
+      if (opts.dir !== undefined || opts.coverageOverlay !== undefined) {
+        throw new LedgerError("invalid_request", "dir and coverageOverlay are local-only options", 400);
+      }
+      const remote = resolveRemoteConfig(opts);
+      this.transport = new RemoteTransport(remote);
+      this.dir = null;
+      this.mode = "remote";
+      this.consoleUrl = remote.url;
+      this.pollMs = opts.pollMs ?? 1000;
     } else if (opts.mode === "local") {
       this.dir = path.resolve(opts.dir ?? ".actledger");
+      this.mode = "local";
+      this.consoleUrl = null;
+      this.pollMs = opts.pollMs ?? 200;
       try {
         this.transport = new LocalTransport(
           openLedger({ dir: opts.dir ?? ".actledger", now: opts.now, coverageOverlay: opts.coverageOverlay }),
@@ -344,6 +377,12 @@ export class Ledger {
     } else {
       throw new LedgerError("invalid_request", "pass mode: 'local' or a transport", 400);
     }
+  }
+
+  /** Local: the actledger CLI commands. Remote: the approval console URL. */
+  approveHint(taskId: string, requirements?: ApproveRequirements | null): string {
+    if (this.consoleUrl) return remoteApproveHint(taskId, this.consoleUrl, requirements);
+    return approveHint(taskId, this.dir, requirements);
   }
 
   async request(input: RequestInput & { readOnly?: boolean }): Promise<TaskHandle> {
@@ -399,7 +438,7 @@ export class Ledger {
       mode: "wait",
       agentId: spec.agentId,
       timeoutMs: spec.timeoutMs,
-      pollMs: 20,
+      pollMs: this.mode === "remote" ? this.pollMs : 20,
       principal: (_tool, args) => spec.principal(args),
       map: (_tool, args) => ({
         action: typeof spec.action === "string" ? { type: spec.action } : spec.action(args),

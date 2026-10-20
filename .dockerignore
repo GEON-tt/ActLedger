@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/dist
+.git
+**/.actledger
+**/out
+**/.env*
+**/*.pem
+**/master.key
+**/actledger-data
+**/*.db
+**/serve.token
+**/keys/
+python
+examples

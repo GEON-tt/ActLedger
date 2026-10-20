@@ -10,7 +10,7 @@
 
 读者是回执校验器、账本实现和策略引擎的作者。
 
-本目录只规定已经实现、并且 `verify` 会检查的格式：字段、算法、状态迁移和期望的测试向量。还没有实现的 HTTP API 不在这里假装已经定稿。
+本目录规定校验器或兼容服务器要实现的格式：字段、算法、状态迁移、HTTP API，以及期望的测试向量。单租户 HTTP API 在 [http.md](http.md)。
 
 ## 2. 文件清单
 
@@ -22,8 +22,8 @@
 | [policy.md](policy.md) | 策略文档和求值 | 当前；还没有 `policy.schema.json` |
 | [verify.md](verify.md) | 校验器步骤和 CLI | 当前 |
 | [rpc.md](rpc.md) | 本地 stdio rpc，供 Python SDK 调用 | 当前 |
+| [http.md](http.md) | 单租户 HTTP API | 当前 |
 | [test-vectors/](../test-vectors/) | 固定向量 | 当前 |
-| `http-api.md` | HTTP API | 计划中，随 HTTP 服务端补齐 |
 
 ## 3. 规范性用语
 

@@ -50,13 +50,21 @@ ledger.close()
 
 rpc 命令按这个顺序选择：显式的 `command=[...]`，然后是 `ACTLEDGER_RPC_COMMAND`，然后在开发期查找 `packages/cli/src/main.ts` 和 `node_modules/tsx/dist/cli.mjs`，最后是 `PATH` 上的 `actledger`。
 
+## 远端客户端
+
+```python
+ledger = Ledger(mode="remote")  # ACTLEDGER_URL 和 ACTLEDGER_API_KEY
+```
+
+必须写 `mode="remote"`。`url` 和 `api_key` 缺省时用 `ACTLEDGER_URL` 和 `ACTLEDGER_API_KEY`。`call_timeout`（默认 30 秒）是单次请求超时。`poll_interval` 对本地账本默认 0.2 秒，对远端账本默认 1.0 秒。`allow_insecure_http` 允许回环以外的 `http://`。非默认的 `dir`、`coverage_overlay` 或 `command` 会被拒绝。`sweep()` 不请求服务器。异步代码用 `gate.async_before`、`gate.async_after`、`gate.async_resume`，或 `await asyncio.to_thread(ledger.request, ...)`。没有 `AsyncLedger`。见[远端服务器](scenarios/remote-server.md)和 [HTTP API](../../spec/zh-CN/http.md)。
+
 ## 和 TypeScript 的差异
 
 | TypeScript | Python |
 | --- | --- |
-| `wait({ timeoutMs, pollMs })` | `wait(timeout=900.0, poll_interval=0.2)`，单位是秒 |
+| `wait({ timeoutMs, pollMs })` | `wait(timeout=900.0, poll_interval=None)`，单位是秒。`None` 用账本默认值：本地 0.2，远端 1.0 |
 | `complete` 返回回执对象 | `complete` 返回 dict，用 `receipt["id"]` |
-| 还没有 HTTP 客户端 | 没有 `api_key` 或 `base_url`。只有本地模式 |
+| `Ledger({ mode: "remote", url, apiKey })` | `Ledger(mode="remote", url=..., api_key=...)` |
 | `LedgerOptions.now` | 函数传不过 rpc，所以不提供 |
 
 第二次 claim 抛出 `LedgerError`，`code == "already_claimed"`。
@@ -67,6 +75,6 @@ rpc 命令按这个顺序选择：显式的 `command=[...]`，然后是 `ACTLEDG
 
 ## LangGraph
 
-`actledger.langgraph.ledger_gate` 包住一个节点。遇到 `pending_approval` 时，interrupt 里带 `actledger_task_id`、`action`、`payload_hash` 和批准命令。interrupt 上不放载荷预览。恢复之后，适配器再从账本读一次任务，然后执行。见 `python/examples/langgraph_email.py`。
+`actledger.langgraph.ledger_gate` 包住一个节点。遇到 `pending_approval` 时，interrupt 里带 `actledger_task_id`、`action`、`payload_hash` 和一条批准提示。interrupt 上不放载荷预览。恢复之后，适配器再从账本读一次任务，然后执行。见 `python/examples/langgraph_email.py`。
 
 协议见 [spec/zh-CN/rpc.md](../../spec/zh-CN/rpc.md)。校验算法见 [spec/zh-CN/verify.md](../../spec/zh-CN/verify.md)。

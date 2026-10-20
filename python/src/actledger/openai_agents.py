@@ -11,7 +11,6 @@ import json
 from dataclasses import dataclass
 from typing import Any, Callable, MutableMapping
 
-from .gate import approve_hint
 from .ledger import Ledger, Run
 
 try:
@@ -382,7 +381,6 @@ async def resolve_interruptions(result_or_state: Any, binding: OpenAIAgentsLedge
     pending: list = []
     untracked: list = []
     await asyncio.to_thread(binding._ledger.sweep)
-    directory = binding._ledger.dir if isinstance(getattr(binding._ledger, "dir", None), str) else None
     for item in list(state.get_interruptions()):
         name = item.name
         call_id = item.call_id
@@ -407,14 +405,14 @@ async def resolve_interruptions(result_or_state: Any, binding: OpenAIAgentsLedge
             handle = await asyncio.to_thread(binding._ledger.get_task, entry["taskId"])
         except Exception as error:
             binding._report(error, "resolve", name, call_id)
-            pending.append((item, entry["taskId"], approve_hint(entry["taskId"], directory)))
+            pending.append((item, entry["taskId"], binding._ledger.approve_hint(entry["taskId"])))
             continue
         if handle is not None and handle.state == "approved":
             state.approve(item)
             approved.append(item)
             continue
         if handle is not None and handle.state == "pending_approval":
-            pending.append((item, entry["taskId"], approve_hint(entry["taskId"], directory, handle.decision)))
+            pending.append((item, entry["taskId"], binding._ledger.approve_hint(entry["taskId"], handle.decision)))
             continue
         reason = _reason_of(handle)
         state.reject(item, rejection_message=deny_message(name, reason, entry["taskId"]))

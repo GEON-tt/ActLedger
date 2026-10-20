@@ -5,7 +5,6 @@ from typing import Callable
 
 from ._ids import uuidv7
 from .errors import ApprovalExpired, ApprovalRejected, ApprovalRevoked, ContentMismatch, LedgerError
-from .gate import approve_command_line
 from .ledger import Ledger
 from .payload import compare_with_drift
 
@@ -87,7 +86,7 @@ def ledger_gate(
                             "actledger_task_id": current.id,
                             "action": resolved.get("type"),
                             "payload_hash": current.data.get("payloadHash"),
-                            "hint": approve_command_line(current.id, ledger.dir, current.decision),
+                            "hint": ledger.approve_hint(current.id, current.decision),
                         },
                         interrupt_fn,
                     )

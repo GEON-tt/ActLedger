@@ -36,7 +36,7 @@ ToolGate is the generic hook for an agent framework that has no ActLedger adapte
 
 `defer` returns `pending` as soon as the policy asks for approval. Use it when the framework can suspend and resume, such as a LangGraph interrupt or a job queue.
 
-`pollMs` (default 200) is the wait interval. `guard` passes 20.
+`pollMs` defaults to the ledger's poll interval (200 for a local ledger, 1000 for a remote ledger). `guard` passes 20 for a local ledger and the ledger interval for a remote ledger.
 
 ## resume
 
@@ -142,7 +142,7 @@ gate = ToolGate(
     mode="wait",  # or "defer"
     agent_id=None,
     timeout=900,  # seconds; None uses 900. wait only
-    poll_interval=0.2,  # guard passes 0.02
+    poll_interval=0.2,  # local guard passes 0.02; remote guard uses the ledger interval
     map=None,  # (tool_name, input) -> ToolMapping or a snake_case dict
 )
 decision = gate.before(tool_name, input)

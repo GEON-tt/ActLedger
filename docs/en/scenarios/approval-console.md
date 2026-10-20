@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-`actledger serve` does not make a recorded integration enforced ([guarantees](../guarantees.md)). It is a local page on `127.0.0.1` where a person approves or rejects tasks from any integration above. It sits outside the agent process, so the agent cannot approve its own calls. Approvals made here are `app_asserted`: the application claims the user confirmed, not a channel identity check.
+`actledger serve` does not make a recorded integration enforced ([guarantees](../guarantees.md)). It is a local page on `127.0.0.1` where a person approves or rejects tasks from any integration above. It sits outside the agent process, but an agent running as the same system user can read `serve.token` and open the same page, so this only stops mistakes, not a deliberate self-approval. To stop self-approval, use a [remote server](remote-server.md) or a separate system user. Approvals made here are `app_asserted`: the application claims the user confirmed, not a channel identity check.
 
 ## Minimal code
 

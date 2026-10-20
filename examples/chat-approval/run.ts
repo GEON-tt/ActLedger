@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { initLocalDir } from "@actledger/core";
 import { startServer, type ServeHandle } from "@actledger/cli/serve";
 import { Ledger } from "@actledger/sdk";
-import { startChatServer, type ChatServerHandle } from "./chat-server.js";
+import { localTaskSource, remoteTaskSource, startChatServer, type ChatServerHandle } from "./chat-server.js";
 import { loadProvider, resolveProviderName } from "./providers/index.js";
 import type { Provider, ProviderName } from "./providers/types.js";
 import { createNoteTools } from "./tools.js";
@@ -36,7 +36,10 @@ export interface DemoOptions {
 }
 
 export interface DemoHandle {
-  serve: ServeHandle;
+  mode: "local" | "remote";
+  consoleUrl: string;
+  loginUrl: string | null;
+  serve: ServeHandle | null;
   chat: ChatServerHandle;
   provider: ProviderName;
   ledgerDir: string;
@@ -81,6 +84,13 @@ async function shutdown(started: Started): Promise<void> {
 export async function startDemo(opts: DemoOptions = {}): Promise<DemoHandle> {
   const env = opts.env ?? process.env;
   const log = opts.log ?? ((line: string) => process.stdout.write(`${line}\n`));
+  const remoteUrl = (env.ACTLEDGER_URL ?? "").trim();
+  const remoteKey = (env.ACTLEDGER_API_KEY ?? "").trim();
+  if ((remoteUrl === "") !== (remoteKey === "")) {
+    const missing = remoteUrl === "" ? "ACTLEDGER_URL" : "ACTLEDGER_API_KEY";
+    throw new Error(`remote mode needs both ACTLEDGER_URL and ACTLEDGER_API_KEY; missing ${missing}`);
+  }
+  const remote = remoteUrl !== "";
   const dataDir = path.resolve(opts.dataDir ?? path.join(EXAMPLE_DIR, "out"));
   const fresh = opts.fresh ?? env.ACTLEDGER_DEMO_FRESH === "1";
   if (fresh) fs.rmSync(dataDir, { recursive: true, force: true });
@@ -89,12 +99,14 @@ export async function startDemo(opts: DemoOptions = {}): Promise<DemoHandle> {
   fs.mkdirSync(dataDir, { recursive: true });
 
   const policyYaml = fs.readFileSync(path.join(EXAMPLE_DIR, "policy.yaml"), "utf8");
-  if (!fs.existsSync(path.join(ledgerDir, "app.json"))) {
-    initLocalDir(ledgerDir, { policyYaml });
-  } else {
-    const dest = path.join(ledgerDir, "policy.yaml");
-    const current = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
-    if (current !== policyYaml) fs.writeFileSync(dest, policyYaml);
+  if (!remote) {
+    if (!fs.existsSync(path.join(ledgerDir, "app.json"))) {
+      initLocalDir(ledgerDir, { policyYaml });
+    } else {
+      const dest = path.join(ledgerDir, "policy.yaml");
+      const current = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+      if (current !== policyYaml) fs.writeFileSync(dest, policyYaml);
+    }
   }
 
   const servePort = portFromEnv(opts.servePort, env.ACTLEDGER_DEMO_SERVE_PORT, "ACTLEDGER_DEMO_SERVE_PORT", DEFAULT_SERVE_PORT);
@@ -106,19 +118,28 @@ export async function startDemo(opts: DemoOptions = {}): Promise<DemoHandle> {
 
   const started: Started = { provider };
   try {
-    started.serve = await startServer({
-      dir: ledgerDir,
-      port: servePort,
-      pollMs: 0,
-      env,
-      log: (line) => log(`[serve] ${line}`),
-    });
-    started.ledger = new Ledger({ mode: "local", dir: ledgerDir });
-    const tools = createNoteTools({ ledger: started.ledger, outbox, timeoutMs: gateTimeoutMs, pollMs: gatePollMs });
+    if (!remote) {
+      started.serve = await startServer({
+        dir: ledgerDir,
+        port: servePort,
+        pollMs: 0,
+        env,
+        log: (line) => log(`[serve] ${line}`),
+      });
+      started.ledger = new Ledger({ mode: "local", dir: ledgerDir });
+    } else {
+      started.ledger = new Ledger({ mode: "remote", url: remoteUrl, apiKey: remoteKey });
+    }
+    const ledger = started.ledger;
+    if (!ledger) throw new Error("demo did not open a ledger");
+    const consoleUrl = remote ? (ledger.consoleUrl ?? remoteUrl) : (started.serve?.origin ?? "");
+    const tools = createNoteTools({ ledger, outbox, timeoutMs: gateTimeoutMs, pollMs: gatePollMs });
+    const source = remote ? remoteTaskSource(ledger, consoleUrl) : localTaskSource(ledgerDir, consoleUrl);
     started.chat = await startChatServer({
       port: chatPort,
-      ledgerDir,
-      serveOrigin: started.serve.origin,
+      source,
+      consoleUrl,
+      mode: remote ? "remote" : "local",
       provider,
       tools,
       log,
@@ -135,11 +156,15 @@ export async function startDemo(opts: DemoOptions = {}): Promise<DemoHandle> {
   const serve = started.serve;
   const chat = started.chat;
   const ledger = started.ledger;
-  if (!serve || !chat || !ledger) throw new Error("demo did not start");
+  if (!chat || !ledger || (!remote && !serve)) throw new Error("demo did not start");
+  const consoleUrl = ledger.consoleUrl ?? serve?.origin ?? "";
 
   let closing: Promise<void> | undefined;
   return {
-    serve,
+    mode: remote ? "remote" : "local",
+    consoleUrl,
+    loginUrl: serve?.loginUrl ?? null,
+    serve: serve ?? null,
     chat,
     provider: name,
     ledgerDir,
@@ -193,13 +218,21 @@ async function main(): Promise<void> {
     loadEnvFile(path.join(EXAMPLE_DIR, ".env"));
     const { name, suggestion } = resolveProviderName(process.env);
     const handle = await startDemo({ provider: name });
-    process.stdout.write(`approval console: ${handle.serve.origin}/   login: ${handle.serve.loginUrl}\n`);
-    process.stdout.write(`chat:             ${handle.chat.origin}/\n`);
+    if (handle.mode === "remote") {
+      process.stdout.write(`ledger:           remote ${handle.consoleUrl}\n`);
+      process.stdout.write(
+        `approval console: ${handle.consoleUrl}/  (log in with your username, password and authenticator code)\n`,
+      );
+      process.stdout.write(`chat:             ${handle.chat.origin}/\n`);
+    } else if (handle.serve) {
+      process.stdout.write(`approval console: ${handle.serve.origin}/   login: ${handle.serve.loginUrl}\n`);
+      process.stdout.write(`chat:             ${handle.chat.origin}/\n`);
+    }
     process.stdout.write(`provider:         ${handle.provider}\n`);
     if (suggestion) process.stdout.write(`${suggestion}\n`);
     if (process.env.ACTLEDGER_DEMO_NO_OPEN !== "1") {
-      openBrowser(handle.serve.loginUrl);
-      setTimeout(() => openBrowser(`${handle.chat.origin}/`), 300);
+      if (handle.mode === "local" && handle.loginUrl) openBrowser(handle.loginUrl);
+      setTimeout(() => openBrowser(`${handle.chat.origin}/`), handle.mode === "local" ? 300 : 0);
     }
     let stopping = false;
     const stop = async () => {

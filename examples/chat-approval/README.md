@@ -33,6 +33,12 @@ Data lives in `examples/chat-approval/out/` (gitignored). `ACTLEDGER_DEMO_FRESH=
 
 Keys are read only from the environment. They can also live in `examples/chat-approval/.env` (gitignored, do not commit). The demo does not print or save keys.
 
+## Connect to a remote server
+
+Set both `ACTLEDGER_URL` and `ACTLEDGER_API_KEY`. The demo then does not create `out/ledger` and does not start a local `actledger serve`. The outbox stays in `out/outbox.jsonl` on the agent machine. The terminal prints the remote console URL and opens only the chat page.
+
+On the server, initialize with `examples/chat-approval/policy.yaml`, create the approver with `--principal u_1`, and create the key with `agent-key create --agent chat-approval --principal u_1`. The rule for `tool.send_note` is `level: write` and `min_assurance: app_asserted`, so the console can approve it. Setting only one of the two variables is an error that names the missing one.
+
 ## Where the gate sits
 
 All four providers are recorded integrations.

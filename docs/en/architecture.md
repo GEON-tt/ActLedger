@@ -2,7 +2,7 @@
 
 # Architecture
 
-0.1.0 is a local ledger. There is no multi-tenant HTTP server, PostgreSQL, or external timestamp anchor. Approval runs locally: `actledger approve`/`reject`, the `actledger serve` page on 127.0.0.1, and signed webhook links. Hosted services stay behind `Store` on the engine and `Transport` on the SDK.
+0.1.0 includes a single-tenant `@actledger/server`: a `/v1` agent API and a password + TOTP approval console. There is no multi-tenant service, PostgreSQL, or external timestamp anchor. Local approval is still `actledger approve`/`reject`, the `actledger serve` page on 127.0.0.1, and signed webhook links. Further hosted work stays behind `Store` on the engine and `Transport` on the SDK.
 
 ```mermaid
 flowchart LR
@@ -13,12 +13,15 @@ flowchart LR
   core["@actledger/core"]
   db["SQLite ledger.db plus secrets"]
   upstream["Upstream MCP server"]
+  remote["RemoteTransport / Python HttpClient"]
+  server["@actledger/server"]
 
   agent --> sdk --> core
   agent --> proxy --> core
   proxy --> upstream
   cli --> core
   core --> db
+  remote --> server --> core
 ```
 
 `@actledger/core` owns canonical JSON, commitments, Ed25519 receipts, the 11-state machine, YAML policy, and the SQLite store. Receipts are append-only. The Python package checks the same vectors and, for local calls, speaks [`actledger rpc`](../../spec/rpc.md) to this engine instead of reimplementing it.
@@ -53,6 +56,7 @@ Policy evaluation is first-match. Unknown actions use `defaults.unknown_action`.
 | [`@actledger/core`](../../packages/core) | Receipts, payload commitments, the state machine, policy evaluation, verify, and the SQLite ledger |
 | [`@actledger/sdk`](../../packages/sdk) | TypeScript `Ledger`: request, wait, claim, complete |
 | [`@actledger/cli`](../../packages/cli) | `actledger` for init, approve, export, and verify |
+| [`@actledger/server`](../../packages/server) | Single-tenant server: `/v1` agent API, password + TOTP console, `actledger-server` |
 | [`@actledger/mcp-proxy`](../../packages/mcp-proxy) | Stdio MCP proxy in front of an upstream server |
 | [`@actledger/claude-agent-sdk`](../../packages/claude-agent-sdk) | Claude Agent SDK adapter: `canUseTool` and `PostToolUse` hooks on a ToolGate |
 | [`@actledger/openai-agents`](../../packages/openai-agents) | OpenAI Agents SDK adapter: `needsApproval` interruptions and execute recording on a ToolGate |
@@ -60,4 +64,4 @@ Policy evaluation is first-match. Unknown actions use `defaults.unknown_action`.
 
 ## Not yet
 
-HTTP service, PostgreSQL, a hosted approval page, Feishu or email channels, a credential gate, RFC 3161 anchoring, and a Java SDK. Later work should go through `Store` and the SDK `Transport`.
+Multi-tenant hosting, PostgreSQL, Feishu or email channels, a credential gate, RFC 3161 anchoring, and a Java SDK. Later work should go through `Store` and the SDK `Transport`.

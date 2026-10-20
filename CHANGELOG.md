@@ -6,6 +6,10 @@ Not published to npm or PyPI.
 
 ### Added
 
+- **Remote server**
+
+  `@actledger/server` and `actledger-server` are a single-tenant server: a `/v1` agent API authenticated with a bearer key that can only submit and execute, a password + TOTP approval console, and a signing key that stays on the server. `new Ledger({ mode: "remote" })` and Python `Ledger(mode="remote")` use `ACTLEDGER_URL` and `ACTLEDGER_API_KEY`. The chat demo can attach to that server. `deploy/` builds a Docker image and a Caddy compose file. `spec/http.md` describes the HTTP API. `guarantees.md` now compares the three deployments, and still calls out the two boundaries that need an external anchor and a credential gate.
+
 - **Scenario docs**
 
   The README now opens with `pnpm demo`, a mermaid diagram of agent → ToolGate → approval console → receipt, and links to six scenario pages in `docs/en/scenarios/` and `docs/zh-CN/scenarios/`: your own loop, Cursor SDK, Claude Agent SDK, OpenAI Agents SDK, an MCP server behind the proxy, and the approval console. The long reference moved into getting started, MCP proxy, and architecture. `guarantees.md` opens with a recorded-versus-enforced table, and `approval.md` describes the token file, list tabs, timeline, and required rejection reason. `packages/cli/test/docs.test.ts` fails on broken relative links in the README and docs and checks that English and Chinese pages have the same headings and link counts.

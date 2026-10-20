@@ -37,6 +37,7 @@ flowchart LR
 - [OpenAI Agents SDK](docs/zh-CN/scenarios/openai-agents.md)：在 ToolGate 上处理 `needsApproval` 中断。
 - [一个 MCP 服务器](docs/zh-CN/scenarios/mcp-server.md)：把 MCP 代理放在它前面；这是强制路径。
 - [审批台](docs/zh-CN/scenarios/approval-console.md)：登录、再次登录、轮换 token，以及为什么 Approve 会被禁用。
+- [远端服务器](docs/zh-CN/scenarios/remote-server.md)：账本和签名私钥留在你运行的服务器上。部署：[deploy/README.zh-CN.md](deploy/README.zh-CN.md)。
 
 ## 记录式还是强制式
 

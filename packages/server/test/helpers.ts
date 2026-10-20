@@ -165,6 +165,38 @@ export async function login(
   return { status: res.status, cookie: match ? `actledger_session=${match[1]}` : null, headers: res.headers, body: res.body };
 }
 
+export async function approveViaConsole(port: number, cookie: string, id: string): Promise<void> {
+  const page = await request(port, "GET", `/tasks/${encodeURIComponent(id)}`, { headers: { cookie } });
+  if (page.status !== 200) throw new Error(`task page ${page.status}`);
+  const posted = await request(port, "POST", `/tasks/${encodeURIComponent(id)}/approve`, {
+    headers: {
+      cookie,
+      origin: `http://127.0.0.1:${port}`,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: form({ csrf: field(page.body, "csrf"), presented_hash: field(page.body, "presented_hash") }),
+  });
+  if (posted.status !== 303) throw new Error(`approve ${posted.status}: ${posted.body.slice(0, 200)}`);
+}
+
+export async function rejectViaConsole(port: number, cookie: string, id: string, reason: string): Promise<void> {
+  const page = await request(port, "GET", `/tasks/${encodeURIComponent(id)}`, { headers: { cookie } });
+  if (page.status !== 200) throw new Error(`task page ${page.status}`);
+  const posted = await request(port, "POST", `/tasks/${encodeURIComponent(id)}/reject`, {
+    headers: {
+      cookie,
+      origin: `http://127.0.0.1:${port}`,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: form({
+      csrf: field(page.body, "csrf"),
+      presented_hash: field(page.body, "presented_hash"),
+      reason,
+    }),
+  });
+  if (posted.status !== 303) throw new Error(`reject ${posted.status}: ${posted.body.slice(0, 200)}`);
+}
+
 export async function csrfFrom(port: number, cookie: string, requestPath: string): Promise<string> {
   const res = await request(port, "GET", requestPath, { headers: { cookie } });
   return field(res.body, "csrf");

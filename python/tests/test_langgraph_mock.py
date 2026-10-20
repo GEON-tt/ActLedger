@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from actledger.errors import LedgerError
+from actledger.gate import approve_hint
 from actledger.langgraph import ledger_gate
 
 
@@ -86,6 +87,9 @@ class FakeLedger:
     def get_task(self, task_id: str):
         self.gets += 1
         return FakeHandle(self)
+
+    def approve_hint(self, task_id: str, requirements: dict | None = None) -> str:
+        return approve_hint(task_id, self.dir, requirements)
 
 
 def _gate(ledger, interrupt_fn, calls: list):

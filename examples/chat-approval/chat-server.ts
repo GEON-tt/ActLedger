@@ -7,6 +7,7 @@ import {
   type Receipt,
   type State,
 } from "@actledger/core";
+import type { Ledger } from "@actledger/sdk";
 import type { Provider, ProviderName } from "./providers/types.js";
 import type { ChatMessage } from "./providers/types.js";
 import type { NoteTools, ToolEvent } from "./tools.js";
@@ -15,7 +16,7 @@ export type ChatEvent =
   | { type: "turn_start"; turnId: string; provider: ProviderName }
   | { type: "text"; text: string }
   | ToolEvent
-  | { type: "turn_summary"; tasks: TaskSummary[]; verify: VerifySummary }
+  | { type: "turn_summary"; tasks: TaskSummary[]; verify: VerifySummary | null }
   | { type: "error"; message: string }
   | { type: "done"; status: "finished" | "error" };
 
@@ -38,14 +39,121 @@ export interface VerifySummary {
   secretsChecked: number | null;
 }
 
+export interface PendingTask {
+  id: string;
+  tool: string;
+  createdAt: string;
+  expiresAt: string | null;
+  consoleUrl: string;
+}
+
+export interface TaskSource {
+  pending(sinceMs: number | null): Promise<PendingTask[]>;
+  summarize(ids: string[]): Promise<TaskSummary[]>;
+  verify(): Promise<VerifySummary | null>;
+  /** Record a task id this process has seen. A receipt hash comes from a tool_result event. */
+  note(id: string, receiptHash?: string | null): void;
+  close(): void;
+}
+
+export function localTaskSource(ledgerDir: string, consoleUrl: string): TaskSource {
+  const engine = openLedger({ dir: ledgerDir });
+  return {
+    async pending(sinceMs) {
+      return engine
+        .listTasks({ state: "pending_approval" })
+        .filter((task) => {
+          if (sinceMs === null) return true;
+          const created = Date.parse(task.createdAt);
+          return Number.isNaN(created) || created >= sinceMs;
+        })
+        .map((task) => ({
+          id: task.id,
+          tool: toolOf(task.action.type),
+          createdAt: task.createdAt,
+          expiresAt: task.expiresAt,
+          consoleUrl: `${consoleUrl}/tasks/${task.id}`,
+        }));
+    },
+    async summarize(ids) {
+      return summarizeTasks(engine, ids, consoleUrl);
+    },
+    async verify() {
+      return verifyLedger(engine);
+    },
+    note() {},
+    close() {
+      engine.close();
+    },
+  };
+}
+
+export function remoteTaskSource(ledger: Ledger, consoleUrl: string): TaskSource {
+  const known = new Set<string>();
+  const hashes = new Map<string, string>();
+  const request = ledger.request.bind(ledger);
+  (ledger as { request: Ledger["request"] }).request = async (input) => {
+    const handle = await request(input);
+    if (!handle.degraded) known.add(handle.id);
+    return handle;
+  };
+  return {
+    async pending(sinceMs) {
+      const tasks: PendingTask[] = [];
+      for (const id of known) {
+        const handle = await ledger.getTask(id);
+        if (!handle || handle.state !== "pending_approval") continue;
+        const created = Date.parse(handle.data.createdAt);
+        if (sinceMs !== null && !Number.isNaN(created) && created < sinceMs) continue;
+        tasks.push({
+          id: handle.id,
+          tool: toolOf(handle.data.action.type),
+          createdAt: handle.data.createdAt,
+          expiresAt: handle.data.expiresAt,
+          consoleUrl: `${consoleUrl}/tasks/${handle.id}`,
+        });
+      }
+      return tasks;
+    },
+    async summarize(ids) {
+      const tasks: TaskSummary[] = [];
+      for (const id of ids) {
+        const handle = await ledger.getTask(id);
+        if (!handle) continue;
+        tasks.push({
+          taskId: id,
+          tool: toolOf(handle.data.action.type),
+          state: handle.state,
+          approver: null,
+          channel: null,
+          reasonRecorded: false,
+          receiptHash: hashes.get(id) ?? null,
+          receiptCount: 0,
+          consoleUrl: `${consoleUrl}/tasks/${id}`,
+        });
+      }
+      return tasks;
+    },
+    async verify() {
+      return null;
+    },
+    note(id, receiptHash) {
+      known.add(id);
+      if (receiptHash) hashes.set(id, receiptHash);
+    },
+    close() {},
+  };
+}
+
 export interface ChatServerOptions {
   port: number;
-  ledgerDir: string;
-  serveOrigin: string;
+  source: TaskSource;
+  consoleUrl: string;
+  mode: "local" | "remote";
   provider: Provider;
   tools: NoteTools;
   log: (line: string) => void;
-  /** 一轮对话进行中，扫描 pending 任务的间隔。默认 250。 */
+  /** How often to scan pending tasks during a turn. Default 250. */
   pendingPollMs?: number;
 }
 
@@ -182,7 +290,6 @@ export function verifyLedger(engine: LedgerEngine): VerifySummary {
 
 export async function startChatServer(opts: ChatServerOptions): Promise<ChatServerHandle> {
   const pendingPollMs = opts.pendingPollMs ?? 250;
-  const readEngine = openLedger({ dir: opts.ledgerDir });
   const history: ChatMessage[] = [];
   let busy = false;
   let turnSeq = 0;
@@ -231,7 +338,7 @@ export async function startChatServer(opts: ChatServerOptions): Promise<ChatServ
         sendText(res, 405, "method not allowed");
         return;
       }
-      sendJson(res, 200, { provider: opts.provider.name, serveOrigin: opts.serveOrigin });
+      sendJson(res, 200, { provider: opts.provider.name, consoleUrl: opts.consoleUrl, mode: opts.mode });
       return;
     }
     if (pathname === "/pending") {
@@ -239,14 +346,7 @@ export async function startChatServer(opts: ChatServerOptions): Promise<ChatServ
         sendText(res, 405, "method not allowed");
         return;
       }
-      const tasks = readEngine.listTasks({ state: "pending_approval" }).map((task) => ({
-        id: task.id,
-        tool: toolOf(task.action.type),
-        createdAt: task.createdAt,
-        expiresAt: task.expiresAt,
-        consoleUrl: `${opts.serveOrigin}/tasks/${task.id}`,
-      }));
-      sendJson(res, 200, { tasks });
+      sendJson(res, 200, { tasks: await opts.source.pending(null) });
       return;
     }
     if (pathname === "/message") {
@@ -336,19 +436,19 @@ export async function startChatServer(opts: ChatServerOptions): Promise<ChatServ
 
     let stopScan = false;
     const kicks: NodeJS.Timeout[] = [];
-    const scanPending = () => {
+    const scanPending = async () => {
       try {
-        for (const task of readEngine.listTasks({ state: "pending_approval" })) {
-          if (Date.parse(task.createdAt) < startedAt) continue;
+        const tasks = await opts.source.pending(startedAt);
+        for (const task of tasks) {
           if (announced.has(task.id)) continue;
-          emitTool({ type: "approval_pending", callId: null, taskId: task.id, tool: toolOf(task.action.type) });
+          emitTool({ type: "approval_pending", callId: null, taskId: task.id, tool: task.tool });
         }
       } catch {
-        // A locked or closed ledger should not fail the turn.
+        // A closed ledger should not fail the turn.
       }
     };
     const kickScan = () => {
-      if (!stopScan) scanPending();
+      if (!stopScan) void scanPending();
     };
     const emitTool = (event: ToolEvent) => {
       if (event.type === "approval_pending") {
@@ -356,14 +456,19 @@ export async function startChatServer(opts: ChatServerOptions): Promise<ChatServ
         announced.add(event.taskId);
       }
       const id = event.type === "tool_call" ? null : event.taskId;
-      if (id) seen.add(id);
+      if (id) {
+        seen.add(id);
+        opts.source.note(id, event.type === "tool_result" ? event.receiptHash : null);
+      }
       write(event);
       if (event.type === "tool_call") {
         queueMicrotask(kickScan);
         kicks.push(setTimeout(kickScan, 0));
       }
     };
-    const timer = setInterval(scanPending, pendingPollMs);
+    const timer = setInterval(() => {
+      void scanPending();
+    }, pendingPollMs);
     let assistant = "";
     let status: "finished" | "error" = "finished";
     try {
@@ -383,13 +488,13 @@ export async function startChatServer(opts: ChatServerOptions): Promise<ChatServ
       clearInterval(timer);
       for (const kick of kicks) clearTimeout(kick);
     }
-    scanPending();
+    await scanPending();
     history.push({ role: "assistant", text: assistant });
     while (history.length > 20) history.shift();
     write({
       type: "turn_summary",
-      tasks: summarizeTasks(readEngine, [...seen], opts.serveOrigin),
-      verify: verifyLedger(readEngine),
+      tasks: await opts.source.summarize([...seen]),
+      verify: await opts.source.verify(),
     });
     write({ type: "done", status });
   }
@@ -431,7 +536,7 @@ export async function startChatServer(opts: ChatServerOptions): Promise<ChatServ
       });
     });
   } catch (error) {
-    readEngine.close();
+    opts.source.close();
     server.close();
     throw error;
   }
@@ -447,7 +552,7 @@ export async function startChatServer(opts: ChatServerOptions): Promise<ChatServ
         server.closeAllConnections();
         server.close((error) => {
           try {
-            readEngine.close();
+            opts.source.close();
           } catch (closeError) {
             if (!error) {
               reject(closeError);

@@ -17,6 +17,7 @@ from .gate import (
     approve_command_line,
     approve_hint,
     default_tool_mapping,
+    remote_approve_hint,
 )
 from .ledger import GuardContext, Ledger, Run, TaskHandle
 from .verify import verify_jsonl
@@ -40,6 +41,7 @@ __all__ = [
     "ToolMapping",
     "approve_command_line",
     "approve_hint",
+    "remote_approve_hint",
     "commit",
     "default_tool_mapping",
     "jcs",

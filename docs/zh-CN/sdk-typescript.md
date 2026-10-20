@@ -2,7 +2,7 @@
 
 # TypeScript SDK
 
-`@actledger/sdk` 是进程内客户端。在本仓库里它使用 `@actledger/core` 的本地 SQLite 账本。还没有 HTTP 传输。以后的服务端应通过 `Transport` 接进来。
+`@actledger/sdk` 是客户端。`mode: "local"` 使用 `@actledger/core` 的 SQLite 账本。`mode: "remote"` 通过 HTTP 连接 `@actledger/server`。自定义 `Transport` 是另一个接入点。
 
 在克隆里依赖 workspace 包。发布之后：`npm install @actledger/sdk`。
 
@@ -43,5 +43,17 @@ ledger.close();
 SDK 不批准任务。批准是 `actledger approve`（以后也可以是 agent 之外的渠道）。agent 的密钥不是批准凭证。
 
 `@actledger/sdk/webhook` 导出了 webhook 签名校验。`actledger serve` 发送签名 webhook，并提供本地审批页。见[审批](approval.md)。
+
+## 远端模式
+
+```ts
+const ledger = new Ledger({
+  mode: "remote",
+  url: process.env.ACTLEDGER_URL,
+  apiKey: process.env.ACTLEDGER_API_KEY,
+});
+```
+
+必须传 `mode: "remote"`。环境变量只补 `url` 和 `apiKey`。`requestTimeoutMs` 默认 30 秒。`pollMs` 默认 1000（本地仍是 200）。`http://` 只允许 `127.0.0.1`、`::1` 和 `localhost`；其他主机要 `allowInsecureHttp: true`，因为 bearer key 会明文传输。构造函数不发起连接。`sweep()` 是空操作。服务器自己 sweep。错误对照和远端没有的操作见[远端服务器](scenarios/remote-server.md)。路由形状见 [HTTP API](../../spec/zh-CN/http.md)。
 
 状态和回执字段见[状态机](../../spec/zh-CN/state-machine.md)、[回执](../../spec/zh-CN/receipt.md)。

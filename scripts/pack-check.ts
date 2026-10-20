@@ -1,4 +1,4 @@
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { spawn, spawnSync, type SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -15,6 +15,7 @@ const packages = [
   { dir: "mcp-proxy", tarball: "actledger-mcp-proxy-0.1.0.tgz" },
   { dir: "claude-agent-sdk", tarball: "actledger-claude-agent-sdk-0.1.0.tgz" },
   { dir: "openai-agents", tarball: "actledger-openai-agents-0.1.0.tgz" },
+  { dir: "server", tarball: "actledger-server-0.1.0.tgz" },
 ] as const;
 
 function step(name: string): void {
@@ -101,6 +102,84 @@ const tarballs = path.join(tmp, "tarballs");
 const app = path.join(tmp, "app");
 fs.mkdirSync(tarballs);
 
+async function serverSmoke(appDir: string): Promise<void> {
+  step("server 冒烟");
+  const bin = path.join(appDir, "node_modules/.bin/actledger-server");
+  const help = run(bin, ["help"], appDir);
+  if (!(help.stdout ?? "").includes("agent-key create")) {
+    fail("actledger-server help is missing agent-key create", help);
+  }
+  run(bin, ["init", "--data", "srv"], appDir);
+  const created = run(
+    bin,
+    ["agent-key", "create", "--agent", "a", "--principal", "u_1", "--json", "--data", "srv"],
+    appDir,
+  );
+  const parsed = JSON.parse(created.stdout ?? "") as { key?: string };
+  if (!parsed.key) fail("agent-key create did not return a key", created);
+  const child = spawn(bin, ["serve", "--data", "srv", "--port", "0"], {
+    cwd: appDir,
+    env: process.env,
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  let stderr = "";
+  let listening = false;
+  try {
+    const port = await new Promise<number>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`server did not listen\n${stderr}`)), 20_000);
+      child.stderr?.setEncoding("utf8");
+      child.stderr?.on("data", (chunk: string) => {
+        stderr += chunk;
+        const match = /listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(stderr);
+        if (match?.[1] && !listening) {
+          listening = true;
+          clearTimeout(timer);
+          resolve(Number(match[1]));
+        }
+      });
+      child.once("exit", (code) => {
+        if (listening) return;
+        clearTimeout(timer);
+        reject(new Error(`server exited ${code ?? "null"}\n${stderr}`));
+      });
+    });
+    fs.writeFileSync(
+      path.join(appDir, "remote-smoke.mjs"),
+      `import { Ledger } from "@actledger/sdk";
+const ledger = new Ledger({ mode: "remote", url: ${JSON.stringify(`http://127.0.0.1:${port}`)}, apiKey: ${JSON.stringify(parsed.key)} });
+const task = await ledger.request({
+  principalId: "u_1",
+  action: { type: "email.read" },
+  payload: { action: "email.read", args: { folder: "inbox" } },
+});
+const ready = await task.wait({ timeoutMs: 5_000 });
+if (ready.state !== "approved") throw new Error(String(ready.state));
+const exec = await ready.claim();
+await exec.complete({ executedPayload: exec.approvedPayload });
+await ledger.close();
+`,
+    );
+    run("node", ["remote-smoke.mjs"], appDir);
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+    await new Promise<void>((resolve) => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        resolve();
+      }, 5_000);
+      child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+}
+
+async function main(): Promise<void> {
 try {
   step("构建");
   run("pnpm", ["run", "build"], root);
@@ -152,6 +231,14 @@ try {
       "package/dist/index.js",
       "package/dist/index.d.ts",
     ],
+    server: [
+      "package/package.json",
+      "package/LICENSE",
+      "package/README.md",
+      "package/dist/index.js",
+      "package/dist/index.d.ts",
+      "package/dist/main.js",
+    ],
   };
   for (const pkg of packages) {
     const tgz = path.join(tarballs, pkg.tarball);
@@ -199,10 +286,12 @@ try {
           "@actledger/mcp-proxy": "file:../tarballs/actledger-mcp-proxy-0.1.0.tgz",
           "@actledger/claude-agent-sdk": "file:../tarballs/actledger-claude-agent-sdk-0.1.0.tgz",
           "@actledger/openai-agents": "file:../tarballs/actledger-openai-agents-0.1.0.tgz",
+          "@actledger/server": "file:../tarballs/actledger-server-0.1.0.tgz",
         },
         overrides: {
           "@actledger/core": "$@actledger/core",
           "@actledger/sdk": "$@actledger/sdk",
+          "@actledger/cli": "$@actledger/cli",
         },
       },
       null,
@@ -226,13 +315,13 @@ try {
   }
 
   step("SDK 冒烟");
-  const smoke = `import { Ledger } from "@actledger/sdk";
+  const smoke = `import { Ledger, RemoteTransport } from "@actledger/sdk";
 import { verifyWebhook } from "@actledger/sdk/webhook";
 import { jcs, verifyJsonl } from "@actledger/core";
 import { createProxy } from "@actledger/mcp-proxy";
 import { createClaudeAgentAdapter } from "@actledger/claude-agent-sdk";
 import { createOpenAIAgentsLedger, ledgerTool, withLedger, resolveInterruptions } from "@actledger/openai-agents";
-for (const [n, f] of Object.entries({ verifyWebhook, jcs, verifyJsonl, createProxy, createClaudeAgentAdapter, createOpenAIAgentsLedger, ledgerTool, withLedger, resolveInterruptions })) {
+for (const [n, f] of Object.entries({ verifyWebhook, jcs, verifyJsonl, createProxy, createClaudeAgentAdapter, createOpenAIAgentsLedger, ledgerTool, withLedger, resolveInterruptions, RemoteTransport })) {
   if (typeof f !== "function") throw new Error(\`\${n} missing\`);
 }
 const ledger = new Ledger({ mode: "local", dir: ".actledger" });
@@ -343,6 +432,8 @@ ledger.close();
     fail(`rpc hello failed: ${rpc.stdout ?? ""}`, rpc);
   }
 
+  await serverSmoke(app);
+
   step("清理");
   if (keep) process.stdout.write(`[pack-check] kept ${tmp}\n`);
   else fs.rmSync(tmp, { recursive: true, force: true });
@@ -351,3 +442,9 @@ ledger.close();
   process.stderr.write(`[pack-check] temp dir ${tmp}\n`);
   throw error;
 }
+}
+
+main().catch((error: unknown) => {
+  process.stderr.write(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
+  process.exit(1);
+});

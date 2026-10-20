@@ -12,7 +12,7 @@ This directory describes the external format the current implementation must fol
 
 The audience is authors of receipt verifiers, ledger implementations, and policy engines.
 
-This directory specifies only what is implemented and what `verify` checks: fields, algorithms, state transitions, and the expected test vectors. The HTTP API is not implemented and is not presented here as finished.
+This directory specifies the formats a verifier or a compatible server implements: fields, algorithms, state transitions, the HTTP API, and the expected test vectors. The single-tenant HTTP API is [http.md](http.md).
 
 ## 2. File list
 
@@ -24,8 +24,8 @@ This directory specifies only what is implemented and what `verify` checks: fiel
 | [policy.md](policy.md) | Policy document and evaluation | Current; no `policy.schema.json` yet |
 | [verify.md](verify.md) | Verifier steps and CLI | Current |
 | [rpc.md](rpc.md) | Local stdio rpc used by the Python SDK | Current |
+| [http.md](http.md) | Single-tenant HTTP API | Current |
 | [test-vectors/](test-vectors/) | Fixed vectors | Current |
-| `http-api.md` | HTTP API | Planned; added with the HTTP server |
 
 ## 3. Normative words
 

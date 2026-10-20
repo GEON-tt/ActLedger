@@ -2,7 +2,7 @@
 
 # 架构
 
-0.1.0 是本地账本。没有多租户 HTTP 服务、PostgreSQL，也没有外部时间戳锚定。审批在本地进行：`actledger approve`/`reject`、127.0.0.1 上的 `actledger serve` 页面，以及签名 webhook 链接。托管能力以后走引擎的 `Store` 和 SDK 的 `Transport`。
+0.1.0 包含单租户 `@actledger/server`：`/v1` agent API，以及密码 + TOTP 审批台。没有多租户服务、PostgreSQL，也没有外部时间戳锚定。本地审批仍然是 `actledger approve`/`reject`、127.0.0.1 上的 `actledger serve` 页面，以及签名 webhook 链接。进一步的托管能力走引擎的 `Store` 和 SDK 的 `Transport`。
 
 ```mermaid
 flowchart LR
@@ -13,12 +13,15 @@ flowchart LR
   core["@actledger/core"]
   db["SQLite ledger.db 和 secrets"]
   upstream["上游 MCP 服务器"]
+  remote["RemoteTransport / Python HttpClient"]
+  server["@actledger/server"]
 
   agent --> sdk --> core
   agent --> proxy --> core
   proxy --> upstream
   cli --> core
   core --> db
+  remote --> server --> core
 ```
 
 `@actledger/core` 负责规范化 JSON、承诺、Ed25519 回执、11 个状态的状态机、YAML 策略和 SQLite 存储。回执只追加。Python 包用同一套测试向量做校验；本地调用时它通过 [`actledger rpc`](../../spec/zh-CN/rpc.md) 使用这个引擎，而不是再实现一遍。
@@ -53,6 +56,7 @@ flowchart LR
 | [`@actledger/core`](../../packages/core) | 回执、载荷承诺、状态机、策略求值、校验、SQLite 账本 |
 | [`@actledger/sdk`](../../packages/sdk) | TypeScript `Ledger`：request、wait、claim、complete |
 | [`@actledger/cli`](../../packages/cli) | `actledger`：初始化、批准、导出、校验 |
+| [`@actledger/server`](../../packages/server) | 单租户服务器：`/v1` agent API、密码 + TOTP 审批台、`actledger-server` |
 | [`@actledger/mcp-proxy`](../../packages/mcp-proxy) | 放在上游服务器前面的 stdio MCP 代理 |
 | [`@actledger/claude-agent-sdk`](../../packages/claude-agent-sdk) | Claude Agent SDK 适配器：在工具闸门上挂 `canUseTool` 和 `PostToolUse` 钩子 |
 | [`@actledger/openai-agents`](../../packages/openai-agents) | OpenAI Agents SDK 适配器：在工具闸门上做 `needsApproval` 中断和 execute 记录 |
@@ -60,4 +64,4 @@ flowchart LR
 
 ## 还没有做
 
-HTTP 服务、PostgreSQL、托管审批页、飞书或邮件渠道、凭证闸门、RFC 3161 锚定，以及 Java SDK。后面接这些时走 `Store` 和 SDK 的 `Transport`。
+多租户托管、PostgreSQL、飞书或邮件渠道、凭证闸门、RFC 3161 锚定，以及 Java SDK。后面接这些时走 `Store` 和 SDK 的 `Transport`。

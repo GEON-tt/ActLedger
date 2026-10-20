@@ -1,7 +1,7 @@
 {
   "name": "@actledger/sdk",
   "version": "0.1.0",
-  "description": "ActLedger SDK: request, wait, claim, and complete tasks on a local ledger",
+  "description": "ActLedger SDK: request, wait, claim, and complete tasks on a local or remote ledger",
   "license": "Apache-2.0",
   "author": "ActLedger contributors",
   "keywords": ["actledger", "sdk", "agent", "approval", "ledger"],

@@ -26,7 +26,7 @@ export interface ToolGateOptions<I = Record<string, unknown>> {
   mode: ToolGateMode;
   /** Wait mode only. Defaults to the TaskHandle.wait default (15 minutes). */
   timeoutMs?: number;
-  /** Wait mode only. Defaults to 200. guard passes 20 to keep its existing behavior. */
+  /** Wait mode only. Defaults to ledger.pollMs (200 local, 1000 remote). guard passes 20 locally. */
   pollMs?: number;
 }
 
@@ -221,7 +221,7 @@ class ToolGateImpl<I> implements ToolGate<I> {
         return {
           kind: "pending",
           taskId: handle.id,
-          approveHint: approveHint(handle.id, this.opts.ledger.dir, handle.decision),
+          approveHint: this.opts.ledger.approveHint(handle.id, handle.decision),
         };
       case "rejected": {
         const reason = handle.decision.result === "deny" ? "policy_denied" : "rejected";
@@ -306,7 +306,7 @@ class ToolGateImpl<I> implements ToolGate<I> {
     if (this.mode === "defer") return this.settle(task);
     let done: TaskHandle;
     try {
-      done = await task.wait({ timeoutMs: this.opts.timeoutMs, pollMs: this.opts.pollMs ?? 200 });
+      done = await task.wait({ timeoutMs: this.opts.timeoutMs, pollMs: this.opts.pollMs ?? this.opts.ledger.pollMs });
     } catch (error) {
       const denied = denyFromWaitError(error);
       if (denied) return denied;

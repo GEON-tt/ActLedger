@@ -33,6 +33,12 @@ pnpm demo
 
 key 只从环境变量读取，也可以放在 `examples/chat-approval/.env`（已 gitignore，不要提交）。demo 不会打印或保存 key。
 
+## 连接到远端服务器
+
+同时设置 `ACTLEDGER_URL` 和 `ACTLEDGER_API_KEY`。这时 demo 不创建 `out/ledger`，也不启动本地 `actledger serve`。发件箱仍写在 agent 机器的 `out/outbox.jsonl`。终端打印远端审批台地址，并且只打开对话页。
+
+服务器上用 `examples/chat-approval/policy.yaml` 初始化，审批人账号带 `--principal u_1`，key 用 `agent-key create --agent chat-approval --principal u_1`。`tool.send_note` 是 `level: write`、`min_assurance: app_asserted`，审批台可以直接批。两个变量只设一个会报错，并指出缺的是哪一个。
+
 ## gate 放在哪
 
 四种都是 recorded 接入。

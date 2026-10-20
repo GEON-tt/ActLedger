@@ -252,6 +252,7 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
       reasonRecorded: "Rejection reason recorded",
       verifyOk: "Receipt chain verified ({n} receipts)",
       verifyFail: "Receipt chain check failed: {failure}",
+      verifyRemote: "Verification runs on the server.",
       pendingOne: "1 action is waiting for your approval",
       pendingMany: "{n} actions are waiting for your approval",
       state_prepared: "Prepared",
@@ -306,6 +307,7 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
       reasonRecorded: "已记录拒绝理由",
       verifyOk: "回执链校验通过（{n} 条回执）",
       verifyFail: "回执链校验失败：{failure}",
+      verifyRemote: "校验在服务器上做。",
       pendingOne: "有 1 个操作在等你审批",
       pendingMany: "有 {n} 个操作在等你审批",
       state_prepared: "已准备",
@@ -335,7 +337,7 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
     revoked: "muted"
   };
   var lang = initialLang();
-  var serveOrigin = "";
+  var consoleUrl = "";
   var providerName = "";
   var sending = false;
   var current = null;
@@ -428,8 +430,8 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
     node.textContent = providerName === "fake" ? S().providerFake : fmt(S().providerOther, { name: providerName });
   }
   function consoleHref(url, taskId) {
-    if (typeof url === "string" && serveOrigin && url.indexOf(serveOrigin + "/") === 0) return url;
-    return serveOrigin + "/tasks/" + encodeURIComponent(taskId || "");
+    if (typeof url === "string" && consoleUrl && url.indexOf(consoleUrl + "/") === 0) return url;
+    return consoleUrl + "/tasks/" + encodeURIComponent(taskId || "");
   }
   function paintPending() {
     var float = document.getElementById("pending");
@@ -447,8 +449,8 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
       float.setAttribute("href", consoleHref(task.consoleUrl, task.id));
     } else {
       text.textContent = fmt(S().pendingMany, { n: pendingTasks.length });
-      var listUrl = serveOrigin + "/?tab=pending";
-      float.setAttribute("href", listUrl.indexOf(serveOrigin + "/") === 0 ? listUrl : serveOrigin + "/");
+      var listUrl = consoleUrl + "/?tab=pending";
+      float.setAttribute("href", listUrl.indexOf(consoleUrl + "/") === 0 ? listUrl : consoleUrl + "/");
     }
   }
   function applyLang(persist) {
@@ -505,7 +507,7 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
     var anchor = el("a", className || "mono", label || taskId || "");
     anchor.target = "_blank";
     anchor.rel = "noopener";
-    var fallback = serveOrigin + "/tasks/" + encodeURIComponent(taskId || "");
+    var fallback = consoleUrl + "/tasks/" + encodeURIComponent(taskId || "");
     anchor.setAttribute("href", consoleHref(href || fallback, taskId));
     return anchor;
   }
@@ -602,11 +604,16 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
     for (var i = 0; i < tasks.length; i++) list.appendChild(summaryTask(tasks[i]));
     record.el.appendChild(list);
     var verify = el("p", "verify");
-    var ok = record.verify && record.verify.ok;
+    if (record.verify == null) {
+      verify.appendChild(el("span", "", S().verifyRemote));
+      record.el.appendChild(verify);
+      return;
+    }
+    var ok = record.verify.ok;
     verify.appendChild(el("span", ok ? "badge badge-ok" : "badge badge-fail", ok ? "OK" : "FAIL"));
     verify.appendChild(el("span", "", ok
       ? fmt(S().verifyOk, { n: record.verify.receipts })
-      : fmt(S().verifyFail, { failure: (record.verify && record.verify.failure) || "" })));
+      : fmt(S().verifyFail, { failure: record.verify.failure || "" })));
     record.el.appendChild(verify);
   }
   function openCardFor(tool) {
@@ -698,7 +705,7 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
       return;
     }
     if (event.type === "turn_summary") {
-      var record = { el: document.createElement("section"), tasks: event.tasks || [], verify: event.verify || {} };
+      var record = { el: document.createElement("section"), tasks: event.tasks || [], verify: event.verify == null ? null : event.verify };
       record.el.className = "turn-summary card";
       summaries.push(record);
       append(record.el);
@@ -722,14 +729,14 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
     refreshPending();
   }
   function refreshPending() {
-    if (!serveOrigin) return;
+    if (!consoleUrl) return;
     fetch("/pending").then(function (res) { return res.json(); }).then(function (data) {
       pendingTasks = data && data.tasks ? data.tasks : [];
       paintPending();
     }).catch(function () {});
   }
   function send() {
-    if (sending || !serveOrigin) return;
+    if (sending || !consoleUrl) return;
     var text = input.value.trim();
     if (!text) return;
     sending = true;
@@ -831,11 +838,11 @@ a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visib
     else selectText();
   });
   fetch("/config").then(function (res) { return res.json(); }).then(function (config) {
-    serveOrigin = config.serveOrigin || "";
+    consoleUrl = config.consoleUrl || "";
     providerName = config.provider || "";
     paintProvider();
     var consoleLink = document.getElementById("console");
-    if (consoleLink && serveOrigin) consoleLink.setAttribute("href", serveOrigin + "/");
+    if (consoleLink && consoleUrl) consoleLink.setAttribute("href", consoleUrl + "/");
     input.disabled = false;
     sendBtn.disabled = false;
     refreshPending();

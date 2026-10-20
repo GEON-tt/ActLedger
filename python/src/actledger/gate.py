@@ -86,6 +86,26 @@ def approve_hint(task_id: str, dir: str | None, decision: dict | None = None) ->
     )
 
 
+def remote_approve_hint(task_id: str, console_url: str, decision: dict | None = None) -> str:
+    base = (
+        f"Task {task_id} is waiting for approval. "
+        f"Approve or reject it in the ActLedger console: {console_url}/tasks/{task_id}"
+    )
+    requirements = decision if isinstance(decision, dict) else {}
+    minimum = requirements.get("minAssurance")
+    high = isinstance(minimum, str) and _ASSURANCE_RANK.get(minimum, -1) > _ASSURANCE_RANK["app_asserted"]
+    step_up = bool(requirements.get("stepUp"))
+    if not high and not step_up:
+        return base
+    if high and step_up:
+        need = f"{minimum} and step-up"
+    elif high:
+        need = str(minimum)
+    else:
+        need = "step-up"
+    return f"{base} This task needs {need}, which the remote console cannot record; ask the server operator."
+
+
 def _default_payload(action_type: str, input: Any) -> dict:
     args = input if isinstance(input, dict) else {"input": input}
     return {"action": action_type, "args": args}
@@ -141,7 +161,7 @@ class ToolGate:
         agent_id: str | None = None,
         map: Callable[[str, Any], ToolMapping | dict] | None = None,
         timeout: float | None = None,
-        poll_interval: float = 0.2,
+        poll_interval: float | None = None,
     ) -> None:
         self._ledger = ledger
         self._principal = principal
@@ -174,11 +194,7 @@ class ToolGate:
             run = handle.claim()
             return ToolGateAllow(run, run.task_id, run.approved_payload)
         if state == "pending_approval":
-            directory = getattr(self._ledger, "dir", None)
-            return ToolGatePending(
-                handle.id,
-                approve_hint(handle.id, directory if isinstance(directory, str) else None, handle.decision),
-            )
+            return ToolGatePending(handle.id, self._ledger.approve_hint(handle.id, handle.decision))
         if state == "rejected":
             reason: ToolGateDenyReason = "policy_denied" if _decision_result(handle) == "deny" else "rejected"
             cause = ApprovalRejected(handle)
@@ -212,7 +228,8 @@ class ToolGate:
         if self._mode == "defer":
             return self._settle(task)
         try:
-            done = task.wait(timeout=self._timeout or 900, poll_interval=self._poll_interval)
+            interval = self._poll_interval if self._poll_interval is not None else self._ledger.poll_interval
+            done = task.wait(timeout=self._timeout or 900, poll_interval=interval)
         except (ApprovalRejected, ApprovalExpired, ApprovalRevoked) as error:
             return _deny_from_wait(error)
         return self._settle(done)

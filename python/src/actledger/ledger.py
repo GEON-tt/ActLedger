@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 
 from . import _wire
+from ._http import HttpClient
 from ._ids import uuidv7
 from ._rpc import RpcClient
 from .errors import (
@@ -16,7 +17,7 @@ from .errors import (
     LedgerError,
     LedgerUnavailable,
 )
-from .gate import ToolGate, ToolMapping
+from .gate import ToolGate, ToolMapping, approve_hint as local_approve_hint, remote_approve_hint
 from .payload import compare_with_drift
 
 
@@ -103,9 +104,10 @@ class TaskHandle:
     def degraded(cls, ledger: Ledger, payload_hash: str = "sha256:degraded") -> TaskHandle:
         return cls(ledger, _wire.degraded_task_view(payload_hash), True)
 
-    def wait(self, *, timeout: float = 900.0, poll_interval: float = 0.2) -> TaskHandle:
+    def wait(self, *, timeout: float = 900.0, poll_interval: float | None = None) -> TaskHandle:
         if self.degraded:
             return self
+        interval = self._ledger.poll_interval if poll_interval is None else poll_interval
         started = time.monotonic()
         current = self.data
         while current.get("state") == "pending_approval":
@@ -118,7 +120,7 @@ class TaskHandle:
                 break
             if time.monotonic() - started >= timeout:
                 raise ApprovalExpired(TaskHandle(self._ledger, current), "wait timed out")
-            time.sleep(poll_interval)
+            time.sleep(interval)
         handle = TaskHandle(self._ledger, current)
         state = current.get("state")
         if state == "rejected":
@@ -141,16 +143,46 @@ class Ledger:
         *,
         mode: str = "local",
         dir: str | os.PathLike = ".actledger",
+        url: str | None = None,
+        api_key: str | None = None,
+        allow_insecure_http: bool = False,
+        poll_interval: float | None = None,
         strict_content: bool = True,
         on_unavailable: str = "deny",
         coverage_overlay: list[dict] | None = None,
         command: list[str] | None = None,
         call_timeout: float = 30.0,
     ) -> None:
-        if mode != "local":
-            raise LedgerError("invalid_request", "pass mode='local'", 400)
+        if mode not in ("local", "remote"):
+            raise LedgerError("invalid_request", "pass mode='local' or mode='remote'", 400)
+        self.mode = mode
         self.strict_content = strict_content
         self.on_unavailable = on_unavailable
+        self.poll_interval = poll_interval if poll_interval is not None else (1.0 if mode == "remote" else 0.2)
+        self.console_url: str | None = None
+        if mode == "remote":
+            if os.fspath(dir) != ".actledger" or coverage_overlay is not None:
+                raise LedgerError("invalid_request", "dir and coverageOverlay are local-only options", 400)
+            if command is not None:
+                raise LedgerError("invalid_request", "command is a local-only option", 400)
+            resolved_url = url or os.environ.get("ACTLEDGER_URL")
+            resolved_key = api_key or os.environ.get("ACTLEDGER_API_KEY")
+            if not resolved_url or not resolved_key:
+                raise LedgerError(
+                    "invalid_request",
+                    "remote mode needs url and apiKey (or ACTLEDGER_URL and ACTLEDGER_API_KEY)",
+                    400,
+                )
+            client = HttpClient(
+                resolved_url,
+                resolved_key,
+                timeout=call_timeout,
+                allow_insecure_http=allow_insecure_http,
+            )
+            self.dir = None
+            self.console_url = client.url
+            self._rpc = client
+            return
         self.dir = os.path.abspath(dir)
         self._rpc = RpcClient(self.dir, command=command, call_timeout=call_timeout)
         if coverage_overlay:
@@ -159,6 +191,12 @@ class Ledger:
             except Exception:
                 self.close()
                 raise
+
+    def approve_hint(self, task_id: str, requirements: dict | None = None) -> str:
+        if self.console_url:
+            return remote_approve_hint(task_id, self.console_url, requirements)
+        directory = self.dir if isinstance(self.dir, str) else None
+        return local_approve_hint(task_id, directory, requirements)
 
     def request(
         self,
@@ -236,7 +274,7 @@ class Ledger:
             mode="wait",
             agent_id=agent_id,
             timeout=timeout or 900,
-            poll_interval=0.02,
+            poll_interval=self.poll_interval if self.mode == "remote" else 0.02,
             principal=lambda _tool, kw: principal(kw),
             map=lambda _tool, kw: ToolMapping(
                 action=action(kw) if callable(action) else {"type": action},

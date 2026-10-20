@@ -44,7 +44,7 @@ describe("docs links", () => {
     const en = repoRelatives("docs/en/");
     const zh = repoRelatives("docs/zh-CN/");
     expect(en, "docs/en").toEqual(zh);
-    expect(en, "docs/en").toHaveLength(15);
+    expect(en, "docs/en").toHaveLength(16);
   });
 
   it("keeps heading levels and relative link counts in parity", () => {

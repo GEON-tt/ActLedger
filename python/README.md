@@ -54,11 +54,15 @@ The command is chosen in this order:
 
 The child process sets `NODE_OPTIONS=--disable-warning=ExperimentalWarning`. Diagnostics on stderr are not treated as failure.
 
+## Remote client
+
+`Ledger(mode="remote")` calls `@actledger/server` with `urllib`. Set `ACTLEDGER_URL` and `ACTLEDGER_API_KEY`, or pass `url` and `api_key`. `call_timeout` is the per-request timeout. `poll_interval` defaults to 1.0 second. `sweep()` does not send a request. Async code uses `ToolGate.async_before`, `async_after`, and `async_resume`, or `asyncio.to_thread`. There is no `AsyncLedger`.
+
 ## Differences from the TypeScript SDK
 
 | Design note or TypeScript | Python |
 | --- | --- |
-| `Ledger(api_key=..., base_url=...)` | Only `Ledger(mode="local", dir=...)` |
+| `Ledger({ mode: "remote", url, apiKey })` | `Ledger(mode="remote", url=..., api_key=...)` |
 | `wait({ timeoutMs, pollMs })` | `wait(timeout=900.0, poll_interval=0.2)`, in seconds |
 | No separate exception when someone else claimed the task | `LedgerError` with `code == "already_claimed"` |
 | `complete` returns a receipt object | Returns a receipt dict; use `receipt["id"]` |
@@ -103,4 +107,4 @@ python/.venv/bin/pip install -e "./python[dev]"
 python/.venv/bin/python -m actledger verify receipts.jsonl --keys keys.json
 ```
 
-`Ledger(mode="local")` 通过 `actledger rpc` 调用 TypeScript 引擎。批准和拒绝仍用 `actledger approve` / `actledger reject`。用法说明：<https://github.com/GEON-tt/ActLedger/blob/main/docs/zh-CN/sdk-python.md>。仓库说明：<https://github.com/GEON-tt/ActLedger/blob/main/README.zh-CN.md>。
+`Ledger(mode="local")` 通过 `actledger rpc` 调用 TypeScript 引擎。`Ledger(mode="remote")` 用标准库请求 `@actledger/server`，环境变量是 `ACTLEDGER_URL` 和 `ACTLEDGER_API_KEY`。批准和拒绝在本地仍用 `actledger approve` / `actledger reject`；远端用审批台。用法说明：<https://github.com/GEON-tt/ActLedger/blob/main/docs/zh-CN/sdk-python.md>。仓库说明：<https://github.com/GEON-tt/ActLedger/blob/main/README.zh-CN.md>。

@@ -2,7 +2,7 @@
 
 # TypeScript SDK
 
-`@actledger/sdk` is the in-process client. In this repository it uses the local SQLite ledger from `@actledger/core`. There is no HTTP transport yet. A future server should plug in through `Transport`.
+`@actledger/sdk` is the client. `mode: "local"` uses the SQLite ledger from `@actledger/core`. `mode: "remote"` talks to `@actledger/server` over HTTP. A custom `Transport` is the other plug-in point.
 
 From a clone, depend on the workspace package. After publication: `npm install @actledger/sdk`.
 
@@ -43,5 +43,17 @@ If the process stops after claim, or the execution deadline passes, the task bec
 The SDK does not approve tasks. Approval is `actledger approve` (or, later, a channel that is not the agent). The agent's key is not an approval credential.
 
 Webhook signature checks are exported from `@actledger/sdk/webhook`. `actledger serve` sends signed webhooks and serves a local approval page. See [approval](approval.md).
+
+## Remote mode
+
+```ts
+const ledger = new Ledger({
+  mode: "remote",
+  url: process.env.ACTLEDGER_URL,
+  apiKey: process.env.ACTLEDGER_API_KEY,
+});
+```
+
+Pass `mode: "remote"`. The environment variables only fill `url` and `apiKey`. `requestTimeoutMs` defaults to 30 seconds. `pollMs` defaults to 1000 (local stays 200). `http://` is allowed for `127.0.0.1`, `::1`, and `localhost`; other hosts need `allowInsecureHttp: true` because the bearer key would travel in clear text. Construction does not open a connection. `sweep()` is a no-op. The server sweeps on its own. Error mapping and what is not available remotely: [A remote server](scenarios/remote-server.md). Route shapes: [HTTP API](../../spec/http.md).
 
 States and receipt fields: [state machine](../../spec/state-machine.md), [receipts](../../spec/receipt.md).

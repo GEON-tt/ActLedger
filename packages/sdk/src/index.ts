@@ -22,6 +22,7 @@ export {
   type State,
   type CoverageEntry,
 } from "./ledger.js";
+export { RemoteTransport, remoteApproveHint, type RemoteOptions } from "./remote.js";
 export { verifyWebhook, type WebhookEvent } from "./webhook.js";
 export {
   createToolGate,

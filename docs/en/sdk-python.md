@@ -50,13 +50,21 @@ Approve or reject in another process: `pnpm actledger approve tsk_... --dir .act
 
 The rpc command is chosen in this order: an explicit `command=[...]`, then `ACTLEDGER_RPC_COMMAND`, then a development lookup for `packages/cli/src/main.ts` and `node_modules/tsx/dist/cli.mjs`, then `actledger` on `PATH`.
 
+## Remote client
+
+```python
+ledger = Ledger(mode="remote")  # ACTLEDGER_URL and ACTLEDGER_API_KEY
+```
+
+`mode="remote"` is required. `url` and `api_key` fall back to `ACTLEDGER_URL` and `ACTLEDGER_API_KEY`. `call_timeout` (default 30 seconds) is the per-request timeout. `poll_interval` defaults to 0.2 seconds for a local ledger and 1.0 second for a remote ledger. `allow_insecure_http` allows `http://` beyond loopback. A non-default `dir`, a `coverage_overlay`, or a `command` is rejected. `sweep()` does not call the server. In async code use `gate.async_before`, `gate.async_after`, and `gate.async_resume`, or `await asyncio.to_thread(ledger.request, ...)`. There is no `AsyncLedger`. See [A remote server](scenarios/remote-server.md) and the [HTTP API](../../spec/http.md).
+
 ## Differences from TypeScript
 
 | TypeScript | Python |
 | --- | --- |
-| `wait({ timeoutMs, pollMs })` | `wait(timeout=900.0, poll_interval=0.2)` in seconds |
+| `wait({ timeoutMs, pollMs })` | `wait(timeout=900.0, poll_interval=None)` in seconds. `None` uses the ledger default: 0.2 local, 1.0 remote |
 | `complete` returns a receipt object | `complete` returns a dict; use `receipt["id"]` |
-| No HTTP client | No `api_key` or `base_url`. Local mode only |
+| `Ledger({ mode: "remote", url, apiKey })` | `Ledger(mode="remote", url=..., api_key=...)` |
 | `LedgerOptions.now` | Not available across rpc |
 
 A second claim raises `LedgerError` with `code == "already_claimed"`.
@@ -67,6 +75,6 @@ A second claim raises `LedgerError` with `code == "already_claimed"`.
 
 ## LangGraph
 
-`actledger.langgraph.ledger_gate` wraps a node. On `pending_approval` it interrupts with `actledger_task_id`, `action`, `payload_hash`, and the approve command. It does not put a preview of the payload on the interrupt. After resume, the adapter reads the task from the ledger again, then executes. See `python/examples/langgraph_email.py`.
+`actledger.langgraph.ledger_gate` wraps a node. On `pending_approval` it interrupts with `actledger_task_id`, `action`, `payload_hash`, and an approve hint. It does not put a preview of the payload on the interrupt. After resume, the adapter reads the task from the ledger again, then executes. See `python/examples/langgraph_email.py`.
 
 The protocol is [spec/rpc.md](../../spec/rpc.md). The verifier algorithm is [spec/verify.md](../../spec/verify.md).

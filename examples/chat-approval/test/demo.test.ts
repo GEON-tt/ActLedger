@@ -4,10 +4,20 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { openLedger, verifyReceiptChain } from "@actledger/core";
-import type { ChatEvent } from "../chat-server.js";
-import { startDemo, type DemoHandle } from "../run.js";
-import { readNotes } from "../tools.js";
 import type { ServeHandle } from "@actledger/cli/serve";
+import { totpCode } from "../../../packages/server/src/totp.js";
+import {
+  addUser,
+  agentKey,
+  approveViaConsole,
+  boot as bootServer,
+  cleanup,
+  login,
+  tempData,
+} from "../../../packages/server/test/helpers.js";
+import type { ChatEvent } from "../chat-server.js";
+import { EXAMPLE_DIR, startDemo, type DemoHandle } from "../run.js";
+import { readNotes } from "../tools.js";
 
 const HASH_RE = /^sha256:[0-9a-f]{64}$/;
 const NOTE_COMMIT_RE = /^hmac-sha256:[0-9a-f]{64}$/;
@@ -17,11 +27,15 @@ let current: { demo: DemoHandle; dataDir: string } | undefined;
 afterEach(async () => {
   const running = current;
   current = undefined;
-  if (!running) return;
   try {
-    await running.demo.close();
+    if (!running) return;
+    try {
+      await running.demo.close();
+    } finally {
+      fs.rmSync(running.dataDir, { recursive: true, force: true });
+    }
   } finally {
-    fs.rmSync(running.dataDir, { recursive: true, force: true });
+    await cleanup();
   }
 });
 
@@ -116,7 +130,7 @@ async function waitForPending(chatPort: number, timeoutMs = 5000) {
   }
 }
 
-async function boot(): Promise<DemoHandle> {
+async function boot(): Promise<DemoHandle & { serve: ServeHandle }> {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "actl-chat-"));
   try {
     const demo = await startDemo({
@@ -128,8 +142,9 @@ async function boot(): Promise<DemoHandle> {
       log: () => {},
       gatePollMs: 250,
     });
+    if (!demo.serve) throw new Error("local demo did not start a console");
     current = { demo, dataDir };
-    return demo;
+    return demo as DemoHandle & { serve: ServeHandle };
   } catch (error) {
     fs.rmSync(dataDir, { recursive: true, force: true });
     throw error;
@@ -209,6 +224,7 @@ describe("chat approval demo", () => {
       consoleUrl: `${demo.serve.origin}/tasks/${task.id}`,
     });
     expect(summary.tasks[0]?.receiptHash).toMatch(HASH_RE);
+    if (summary.verify == null) throw new Error("missing verify");
     expect(summary.verify.ok).toBe(true);
 
     const notes = readNotes(demo.outbox);
@@ -247,6 +263,7 @@ describe("chat approval demo", () => {
       approver: "u_1",
       reasonRecorded: true,
     });
+    if (summary.verify == null) throw new Error("missing verify");
     expect(summary.verify.ok).toBe(true);
     expect(fs.existsSync(demo.outbox)).toBe(false);
 
@@ -334,8 +351,9 @@ describe("chat approval demo", () => {
     expect(home.body).not.toContain("token=");
 
     const config = await request(demo.chat.port, "GET", "/config");
-    const configBody = JSON.parse(config.body) as { provider: string; serveOrigin: string };
-    expect(configBody.serveOrigin).toBe(demo.serve.origin);
+    const configBody = JSON.parse(config.body) as { provider: string; consoleUrl: string; mode: string };
+    expect(configBody.consoleUrl).toBe(demo.serve.origin);
+    expect(configBody.mode).toBe("local");
     const token = new URL(demo.serve.loginUrl).searchParams.get("token");
     expect(token).toBeTruthy();
     expect(config.body).not.toContain(token ?? "");
@@ -345,6 +363,63 @@ describe("chat approval demo", () => {
       expect(engine.listTasks()).toHaveLength(0);
     } finally {
       engine.close();
+    }
+  });
+
+  it("uses a remote server when ACTLEDGER_URL is set", async () => {
+    const policy = fs.readFileSync(path.join(EXAMPLE_DIR, "policy.yaml"), "utf8");
+    const serverData = tempData(policy);
+    const user = await addUser(serverData, "alice", "u_1");
+    const key = agentKey(serverData, "chat-approval", ["u_1"]);
+    const { handle } = await bootServer(serverData, { now: () => new Date() });
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "actl-chat-remote-"));
+    try {
+      const demo = await startDemo({
+        dataDir,
+        chatPort: 0,
+        provider: "fake",
+        env: { ACTLEDGER_URL: handle.origin, ACTLEDGER_API_KEY: key },
+        log: () => {},
+        gatePollMs: 50,
+      });
+      current = { demo, dataDir };
+      expect(demo.mode).toBe("remote");
+      expect(demo.serve).toBeNull();
+      expect(fs.existsSync(path.join(dataDir, "ledger"))).toBe(false);
+
+      const pendingTurn = postMessage(demo.chat.port, "帮我发一条笔记：明天下午三点开会");
+      pendingTurn.catch(() => {});
+      const task = await waitForPending(demo.chat.port);
+      expect(task.consoleUrl).toBe(`${handle.origin}/tasks/${task.id}`);
+      const logged = await login(handle.port, "alice", user.password, totpCode(user.secret, new Date()));
+      if (!logged.cookie) throw new Error("login failed");
+      await approveViaConsole(handle.port, logged.cookie, task.id);
+      const { events } = await pendingTurn;
+      expect(events.at(-1)).toEqual({ type: "done", status: "finished" });
+      const summary = events.find((event) => event.type === "turn_summary");
+      if (summary?.type !== "turn_summary") throw new Error("missing turn_summary");
+      expect(summary.verify).toBeNull();
+      expect(readNotes(demo.outbox)).toHaveLength(1);
+    } catch (error) {
+      if (!current) fs.rmSync(dataDir, { recursive: true, force: true });
+      throw error;
+    }
+  });
+
+  it("refuses to start with only ACTLEDGER_URL", async () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "actl-chat-remote-"));
+    try {
+      await expect(
+        startDemo({
+          dataDir,
+          chatPort: 0,
+          provider: "fake",
+          env: { ACTLEDGER_URL: "http://127.0.0.1:9" },
+          log: () => {},
+        }),
+      ).rejects.toThrow(/ACTLEDGER_API_KEY/);
+    } finally {
+      fs.rmSync(dataDir, { recursive: true, force: true });
     }
   });
 });

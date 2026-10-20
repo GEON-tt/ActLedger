@@ -15,6 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TSX = REPO_ROOT / "node_modules" / "tsx" / "dist" / "cli.mjs"
 CLI = REPO_ROOT / "packages" / "cli" / "src" / "main.ts"
+SERVER_DIST = REPO_ROOT / "packages" / "server" / "dist" / "main.js"
+SERVER_SRC = REPO_ROOT / "packages" / "server" / "src" / "main.ts"
 VECTORS = REPO_ROOT / "spec" / "test-vectors"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PARITY = REPO_ROOT / "scripts" / "verify-parity.ts"

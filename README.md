@@ -37,6 +37,7 @@ flowchart LR
 - [OpenAI Agents SDK](docs/en/scenarios/openai-agents.md): `needsApproval` interruptions on a ToolGate.
 - [An MCP server](docs/en/scenarios/mcp-server.md): put the MCP proxy in front of it; this is the enforced path.
 - [The approval console](docs/en/scenarios/approval-console.md): log in, log in again, rotate the token, and why Approve can be disabled.
+- [A remote server](docs/en/scenarios/remote-server.md): the ledger and signing key stay on a server you run. Deployment: [deploy/README.md](deploy/README.md).
 
 ## Recorded or enforced
 

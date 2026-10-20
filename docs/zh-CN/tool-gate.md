@@ -36,7 +36,7 @@ ToolGate 给没有专门适配器的 agent 框架用。框架在调用工具前�
 
 `defer` 在策略要求审批时立刻返回 `pending`。框架自己能中断和恢复时用它，例如 LangGraph interrupt 或作业队列。
 
-`pollMs`（默认 200）是 wait 的轮询间隔。`guard` 传入 20。
+`pollMs` 默认用账本的轮询间隔（本地账本 200，远端账本 1000）。`guard` 对本地账本传入 20，对远端账本用账本的间隔。
 
 ## 恢复
 
@@ -142,7 +142,7 @@ gate = ToolGate(
     mode="wait",  # 或 "defer"
     agent_id=None,
     timeout=900,  # 秒；None 则用 900。仅 wait
-    poll_interval=0.2,  # guard 传入 0.02
+    poll_interval=0.2,  # 本地 guard 传入 0.02；远端 guard 用账本间隔
     map=None,  # (tool_name, input) -> ToolMapping 或 snake_case dict
 )
 decision = gate.before(tool_name, input)

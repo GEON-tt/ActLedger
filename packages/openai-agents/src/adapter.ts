@@ -11,7 +11,6 @@ import type {
   ToolOptions,
 } from "@openai/agents";
 import {
-  approveHint,
   type Ledger,
   type Payload,
   type Run,
@@ -712,7 +711,7 @@ export async function resolveInterruptions(
       handle = await box.ledger.getTask(entry.taskId);
     } catch (error) {
       report(box, error, { phase: "resolve", toolName: call.name, callId: call.callId });
-      pending.push({ item, taskId: entry.taskId, approveHint: approveHint(entry.taskId, box.ledger.dir) });
+      pending.push({ item, taskId: entry.taskId, approveHint: box.ledger.approveHint(entry.taskId, handle?.decision) });
       continue;
     }
     if (handle?.state === "approved") {
@@ -721,7 +720,7 @@ export async function resolveInterruptions(
       continue;
     }
     if (handle?.state === "pending_approval") {
-      pending.push({ item, taskId: entry.taskId, approveHint: approveHint(entry.taskId, box.ledger.dir, handle.decision) });
+      pending.push({ item, taskId: entry.taskId, approveHint: box.ledger.approveHint(entry.taskId, handle?.decision) });
       continue;
     }
     const reason = reasonOf(handle);
