@@ -14,6 +14,7 @@ from actledger import (
     Ledger,
     LedgerError,
     ToolGate,
+    approve_command_line,
     approve_hint,
     default_tool_mapping,
 )
@@ -59,6 +60,10 @@ def test_default_mapping_action_type() -> None:
     raw = default_tool_mapping("search", "raw")
     assert raw.payload == {"action": "tool.search", "args": {"input": "raw"}}
     assert "actledger approve tsk_1 --dir /d" in approve_hint("tsk_1", "/d")
+    assert approve_hint("tsk_1", "/d") == 'Task tsk_1 is waiting for approval. Approve: actledger approve tsk_1 --dir /d  Reject: actledger reject tsk_1 --dir /d --note "<reason>"'
+    assert approve_command_line("tsk_1", "/d", {"minAssurance": "channel_verified", "stepUp": None}) == "actledger approve tsk_1 --dir /d --assurance channel_verified"
+    assert approve_command_line("tsk_1", None, {"minAssurance": "user_signed", "stepUp": "webauthn"}) == "actledger approve tsk_1 --assurance user_signed --step-up"
+    assert approve_command_line("tsk_1", None, {"minAssurance": "app_asserted", "stepUp": None}) == "actledger approve tsk_1"
 
 
 @pytest.mark.node
@@ -164,6 +169,7 @@ def test_defer_pending_then_resume_allow(tmp_path: Path, cli) -> None:
         assert pending.kind == "pending"
         assert f"actledger approve {pending.task_id}" in pending.approve_hint
         assert f"--dir {ledger.dir}" in pending.approve_hint
+        assert "--assurance channel_verified" in pending.approve_hint
         assert gate.resume(pending.task_id).kind == "pending"
         approved = cli(
             ["approve", pending.task_id, "--dir", str(directory), "--assurance", "channel_verified"],

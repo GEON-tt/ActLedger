@@ -15,7 +15,7 @@ actions:
   tool.mcp__ledger__echo:
     level: read
   tool.mcp__ledger__send_note:
-    level: send
+    level: write
 rules:
   - id: echo-allow
     match:

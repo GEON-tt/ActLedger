@@ -34,7 +34,7 @@ describe("payload", () => {
     expect(payloadToArguments(mapping!, request.payload)).toEqual(args);
     expect(request.payload.content).toEqual({ content_type: "text/plain", text: "hello" });
     expect(request.payload.args).not.toHaveProperty("body");
-    expect(request.intent).toBe("MCP 工具调用 send_email");
+    expect(request.intent).toBe("MCP tool call send_email");
     expect(request.action.attrs).toMatchObject({
       mcp_server: "fixture",
       mcp_tool: "send_email",

@@ -74,7 +74,7 @@ actions:
     level: write
 ```
 
-`level` 设成 `send`、`spend` 或 `delete` 会把最低保证抬到 `channel_verified`（[evaluate.ts](../../../packages/core/src/policy/evaluate.ts)）。`examples/claude-agent/policy.yaml` 把 `tool.mcp__ledger__send_note` 声明为 `level: send`，所以那个示例的任务需要 `channel_verified`。审批台上的 Approve 是禁用的，脚本打印的 `actledger approve <id> --dir …` 也会得到 `assurance_insufficient`。要批准，加上 `--assurance channel_verified`（回执标为 simulated），或在审批台写理由拒绝。
+规则没写 `min_assurance` 时，`level` 设成 `send`、`spend` 或 `delete` 会把最低保证抬到 `channel_verified`（[evaluate.ts](../../../packages/core/src/policy/evaluate.ts)）。审批台只能记录 `app_asserted`，所以这类任务的 Approve 是禁用的。`examples/claude-agent/policy.yaml` 把 `tool.mcp__ledger__send_note` 声明为 `level: write`，任务只需要 `app_asserted`：在审批台批，或者用脚本打印的 `actledger approve <id> --dir …` 批。任务确实需要更高保证时，批准提示末尾已经带上 `--assurance <level>`（需要 step-up 时还有 `--step-up`），CLI 会把这条回执标为 simulated。
 
 ## 下一步
 

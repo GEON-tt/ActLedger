@@ -60,6 +60,10 @@ class FakeHandle:
     def state(self) -> str:
         return self.data["state"]
 
+    @property
+    def decision(self) -> dict:
+        return self.data["decision"]
+
     def claim(self) -> FakeRun:
         return FakeRun(self._ledger)
 

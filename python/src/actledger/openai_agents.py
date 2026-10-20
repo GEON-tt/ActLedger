@@ -414,7 +414,7 @@ async def resolve_interruptions(result_or_state: Any, binding: OpenAIAgentsLedge
             approved.append(item)
             continue
         if handle is not None and handle.state == "pending_approval":
-            pending.append((item, entry["taskId"], approve_hint(entry["taskId"], directory)))
+            pending.append((item, entry["taskId"], approve_hint(entry["taskId"], directory, handle.decision)))
             continue
         reason = _reason_of(handle)
         state.reject(item, rejection_message=deny_message(name, reason, entry["taskId"]))

@@ -72,7 +72,7 @@ export function toolCallToRequest(
   return {
     principalId: cfg.principal,
     agentId: cfg.agentId,
-    intent: `MCP 工具调用 ${toolName}`,
+    intent: `MCP tool call ${toolName}`,
     action: { type: mapping.action, attrs },
     payload,
   };

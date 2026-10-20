@@ -721,7 +721,7 @@ export async function resolveInterruptions(
       continue;
     }
     if (handle?.state === "pending_approval") {
-      pending.push({ item, taskId: entry.taskId, approveHint: approveHint(entry.taskId, box.ledger.dir) });
+      pending.push({ item, taskId: entry.taskId, approveHint: approveHint(entry.taskId, box.ledger.dir, handle.decision) });
       continue;
     }
     const reason = reasonOf(handle);

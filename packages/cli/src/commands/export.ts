@@ -19,7 +19,7 @@ export function exportCommand(opts: { dir: string; from?: number; to?: number; s
         throw error;
       }
       fs.chmodSync(opts.secrets, 0o600);
-      process.stderr.write("secrets 文件含解密原文\n");
+      process.stderr.write(`warning: ${opts.secrets} contains decrypted plaintext. Do not publish it with the receipts.\n`);
     }
   } finally {
     engine.close();
@@ -62,15 +62,15 @@ export function showCommand(opts: { dir: string; id: string }): void {
     const check = checkReceipt(receipt, engine.publicKeys());
     const transition = receipt.transition ? `${receipt.transition.from ?? "∅"} → ${receipt.transition.to}` : receipt.body.kind;
     const lines = [
-      `回执 ${receipt.id}  seq ${receipt.seq}`,
+      `receipt ${receipt.id}  seq ${receipt.seq}`,
       receipt.issued_at,
-      `迁移: ${transition}`,
-      `动作: ${String((receipt.body.action as { type?: string } | undefined)?.type ?? "-")}`,
-      `接入: ${String((receipt.body.integration as { mode?: string } | undefined)?.mode ?? "-")}`,
-      `批准: ${String((receipt.body.approval as { assurance?: string } | undefined)?.assurance ?? "-")}`,
-      `内容一致: ${String(receipt.body.content_match ?? "-")}`,
-      `哈希: ${receipt.hash}`,
-      `签名: ${check.ok ? "有效" : `无效 (${check.reason})`}`,
+      `transition: ${transition}`,
+      `action: ${String((receipt.body.action as { type?: string } | undefined)?.type ?? "-")}`,
+      `integration: ${String((receipt.body.integration as { mode?: string } | undefined)?.mode ?? "-")}`,
+      `assurance: ${String((receipt.body.approval as { assurance?: string } | undefined)?.assurance ?? "-")}`,
+      `content match: ${String(receipt.body.content_match ?? "-")}`,
+      `hash: ${receipt.hash}`,
+      `signature: ${check.ok ? "valid" : `invalid (${check.reason})`}`,
     ];
     process.stdout.write(`${lines.join("\n")}\n`);
   } finally {

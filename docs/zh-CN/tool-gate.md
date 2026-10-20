@@ -28,7 +28,7 @@ ToolGate 给没有专门适配器的 agent 框架用。框架在调用工具前�
 
 `deny.cause` 是 `ledger.guard` 在同一情形会抛的那个异常。`deny.message` 等于 `cause.message`。`deny.state` 是账本状态（`timeout` 时为 `pending_approval`）。
 
-`pending` 只在 defer 模式出现，任务仍在等待时 `resume` 也会返回它。`approveHint` 里有任务 id 和 `actledger approve <id>`。`Ledger.dir` 有值时还会带 `--dir`。自定义 transport 的 `dir` 是 null，hint 就不带 `--dir`。目录路径含空格时不加引号。需要的话自己加引号。命令形式与 LangGraph 的 hint 相同。
+`pending` 只在 defer 模式出现，任务仍在等待时 `resume` 也会返回它。`approveHint` 里有任务 id 和 `actledger approve <id>`。`Ledger.dir` 有值时还会带 `--dir`。任务的 `decision.minAssurance` 高于 `app_asserted` 时，批准命令末尾带 `--assurance <minAssurance>`；`decision.stepUp` 有值时还带 `--step-up`；CLI 会把这两种都标为 simulated。拒绝命令带 `--note "<reason>"`，因为 `actledger reject` 必须写理由。`approveCommandLine(taskId, dir, decision)` 只返回批准命令。自定义 transport 的 `dir` 是 null，hint 就不带 `--dir`。目录路径含空格时不加引号。需要的话自己加引号。命令形式与 LangGraph 的 hint 相同。
 
 ## wait 与 defer
 

@@ -1,18 +1,18 @@
-import { LedgerError, type Payload, type Receipt, type RequestInput, type State } from "@actledger/core";
+import { assuranceRank, LedgerError, type Payload, type Receipt, type RequestInput, type State } from "@actledger/core";
 import { ApprovalExpired, ApprovalRejected, ApprovalRevoked } from "./errors.js";
 import type { Ledger, Run, TaskHandle } from "./ledger.js";
 
 export type ToolGateMode = "wait" | "defer";
 
-/** map() 的返回值：决定这次工具调用记到账本里的动作与载荷。 */
+/** Return value of map(): the action and payload this tool call records in the ledger. */
 export interface ToolGateMapping {
-  /** 字符串等价于 { type: action }。 */
+  /** A string is shorthand for { type: action }. */
   action: string | RequestInput["action"];
-  /** 省略时用默认载荷 { action: <type>, args: <input 或 { input }> }。 */
+  /** When omitted, the default payload is { action: <type>, args: <input, or { input } when input is not a plain object> }. */
   payload?: Payload;
   intent?: string;
   idempotencyKey?: string;
-  /** 只在账本不可用且 onUnavailable === "allow_read_only" 时起作用。 */
+  /** Only used when the ledger is unavailable and onUnavailable === "allow_read_only". */
   readOnly?: boolean;
   expiresIn?: number;
   metadata?: Record<string, unknown>;
@@ -24,9 +24,9 @@ export interface ToolGateOptions<I = Record<string, unknown>> {
   agentId?: string;
   map?: (toolName: string, input: I) => ToolGateMapping;
   mode: ToolGateMode;
-  /** 仅 wait 模式；默认与 TaskHandle.wait 相同（15 分钟）。 */
+  /** Wait mode only. Defaults to the TaskHandle.wait default (15 minutes). */
   timeoutMs?: number;
-  /** 仅 wait 模式；默认 200。guard 内部传 20 以保持现有行为。 */
+  /** Wait mode only. Defaults to 200. guard passes 20 to keep its existing behavior. */
   pollMs?: number;
 }
 
@@ -40,10 +40,10 @@ export type ToolGateDenyReason =
 
 export interface ToolGateAllow {
   kind: "allow";
-  /** degraded 时为 null，此时不要调用 run 上的方法；after(null, …) 是空操作。 */
+  /** null when degraded; do not call methods on it then. after(null, …) is a no-op. */
   run: Run | null;
   taskId: string | null;
-  /** 工具应该执行的载荷（审批人可能编辑过）。degraded 时等于请求载荷。 */
+  /** The payload the tool should execute (the approver may have edited it). Equals the requested payload when degraded. */
   approvedPayload: Payload;
   degraded: boolean;
 }
@@ -52,11 +52,11 @@ export interface ToolGateDeny {
   kind: "deny";
   taskId: string;
   reason: ToolGateDenyReason;
-  /** 人类可读，例如 "task tsk_x was rejected"。等于 cause.message。 */
+  /** Human-readable, for example "task tsk_x was rejected". Equals cause.message. */
   message: string;
-  /** 判定时任务在账本里的状态。timeout 时是 "pending_approval"。 */
+  /** The task's ledger state at decision time. "pending_approval" on timeout. */
   state: State;
-  /** 旧 guard 在同一情形会抛出的异常；guard 直接 throw 它。 */
+  /** The error the old guard threw in the same case; guard throws it as is. */
   cause: ApprovalRejected | ApprovalExpired | ApprovalRevoked | LedgerError;
 }
 
@@ -71,15 +71,15 @@ export type ToolGateDecision = ToolGateAllow | ToolGateDeny | ToolGatePending;
 export type ToolGateOutcome =
   | {
       result: unknown;
-      /** 默认 run.approvedPayload。 */
+      /** Defaults to run.approvedPayload. */
       executedPayload?: Payload;
       externalProofs?: Array<{ type: string; value: unknown }>;
-      /** 可选：写进 complete 的 result 字段（存到 secrets 明文区，不进回执）。工具原始返回值不会自动写入。 */
+      /** Optional: stored as the result of complete, in the secrets plaintext area, never in the receipt. The tool's raw return value is not stored automatically. */
       record?: Record<string, unknown>;
     }
   | {
       error: unknown;
-      /** 默认 "tool_error"。 */
+      /** Defaults to "tool_error". */
       code?: string;
       retryable?: boolean;
     };
@@ -105,9 +105,25 @@ export function defaultToolMapping(toolName: string, input: unknown): ToolGateMa
   return { action: { type }, payload: defaultPayload(type, input) };
 }
 
-export function approveHint(taskId: string, dir: string | null): string {
+/** The parts of a task decision that change the approve command. Pass `handle.decision`. */
+export interface ApproveRequirements {
+  minAssurance?: string | null;
+  stepUp?: string | null;
+}
+
+/** `actledger approve` with the flags the task needs. The CLI marks `--assurance` above app_asserted and `--step-up` as simulated. `dir` is not quoted. */
+export function approveCommandLine(taskId: string, dir: string | null, requirements?: ApproveRequirements | null): string {
+  let line = `actledger approve ${taskId}`;
+  if (dir) line += ` --dir ${dir}`;
+  const min = requirements?.minAssurance;
+  if (min && assuranceRank(min) > assuranceRank("app_asserted")) line += ` --assurance ${min}`;
+  if (requirements?.stepUp) line += " --step-up";
+  return line;
+}
+
+export function approveHint(taskId: string, dir: string | null, requirements?: ApproveRequirements | null): string {
   const flag = dir ? ` --dir ${dir}` : "";
-  return `Task ${taskId} is waiting for approval. Approve: actledger approve ${taskId}${flag}  Reject: actledger reject ${taskId}${flag}`;
+  return `Task ${taskId} is waiting for approval. Approve: ${approveCommandLine(taskId, dir, requirements)}  Reject: actledger reject ${taskId}${flag} --note "<reason>"`;
 }
 
 function errorMessage(error: unknown): string {
@@ -205,7 +221,7 @@ class ToolGateImpl<I> implements ToolGate<I> {
         return {
           kind: "pending",
           taskId: handle.id,
-          approveHint: approveHint(handle.id, this.opts.ledger.dir),
+          approveHint: approveHint(handle.id, this.opts.ledger.dir, handle.decision),
         };
       case "rejected": {
         const reason = handle.decision.result === "deny" ? "policy_denied" : "rejected";

@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClaudeAgentAdapter } from "@actledger/claude-agent-sdk";
 import { Ledger, createToolGate } from "@actledger/sdk";
+import { approveInstructions } from "./hint";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   process.stdout.write(
@@ -37,9 +38,7 @@ function run(args: string[]): string {
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "actl-claude-"));
 run(["init", "--dir", dir, "--policy", policy]);
 process.stdout.write(`ledger: ${dir}\n`);
-process.stdout.write(
-  `approve from another terminal: pnpm actledger tasks --dir ${dir} --state pending_approval && pnpm actledger approve <task id> --dir ${dir}\n`,
-);
+process.stdout.write(approveInstructions(dir));
 
 const ledger = new Ledger({ mode: "local", dir });
 const gate = createToolGate({ ledger, principal: "u_1", mode: "wait", timeoutMs: 5 * 60_000 });

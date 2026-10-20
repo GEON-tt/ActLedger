@@ -67,7 +67,7 @@ if (!taskId) {
   process.exit(1);
 }
 process.stdout.write(
-  `在另一个终端执行 pnpm actledger approve ${taskId} --dir ${dir} --assurance channel_verified\n`,
+  `approve from another terminal: pnpm actledger approve ${taskId} --dir ${dir} --assurance channel_verified\n`,
 );
 
 for (;;) {

@@ -96,7 +96,7 @@
 
 ## 4. 警告
 
-`v01_plaintext`：0.1 回执的 `initiator` 含 `intent`，或 `error` 含 `message`，或 body 含 `note`，或 `reason` 不是该目标状态的枚举。消息是 `含明文意图或错误信息`。`count` 是这类回执的条数。
+`v01_plaintext`：0.1 回执的 `initiator` 含 `intent`，或 `error` 含 `message`，或 body 含 `note`，或 `reason` 不是该目标状态的枚举。消息是 `0.1 receipts contain plaintext intent, error message, note or reason`。`count` 是这类回执的条数。
 
 警告 MUST NOT 把 `ok` 改成 `false`。
 

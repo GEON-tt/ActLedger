@@ -119,13 +119,12 @@ const EN = {
   "tl.reasonRecorded": " · reason recorded",
   "tl.reason": "reason {reason}",
   "tl.error": "error {code}",
-  "hint.channel":
-    "This policy does not allow approving on this page (策略不允许网页审批). Use `actledger approve`.",
+  "hint.channel": "This policy does not allow approving on this page. Use `actledger approve`.",
   "hint.assurance":
     "Approve is disabled: this action needs {min} assurance, and this page can only record app_asserted. Approve it with the CLI (actledger approve {id} --assurance {min}) or a verified channel. You can still reject it here with a reason.",
   "hint.stepUp":
     "Approve is disabled: this action needs step-up {stepUp}, which this page cannot collect. Use the CLI (actledger approve {id} --step-up).",
-  "hint.approver": "The approver set for this console does not match the task's principal (审批人不匹配).",
+  "hint.approver": "The approver set for this console does not match the task's principal.",
   "link.intro": "This page records one decision for this task. The link stops working after you use it.",
   "linkStatus.title": "Task",
   "linkStatus.missing": "This task does not exist.",

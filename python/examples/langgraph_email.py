@@ -87,8 +87,8 @@ def main() -> None:
     out = graph.invoke(state, config)
     interrupt = out["__interrupt__"][0].value
     print(json.dumps(interrupt, ensure_ascii=False, indent=2))
-    print(f"pnpm actledger approve {interrupt['actledger_task_id']} --dir {ledger_dir}")
-    input("批准后按回车继续...")
+    print(f"pnpm {interrupt['hint']}")
+    input("Press Enter after approving...")
     from langgraph.types import Command
 
     finished = graph.invoke(Command(resume={}), config)

@@ -304,7 +304,10 @@ describe("actledger serve", () => {
     const cookie = `actledger_session=${session}`;
     const detail = await request(handle.port, "GET", `/tasks/${created.task.id}`, { headers: { cookie } });
     expect(detail.body).toContain("disabled");
-    expect(detail.body).toContain("策略不允许网页审批");
+    expect(detail.body).toContain("This policy does not allow approving on this page");
+    expect(detail.body).not.toContain("策略不允许网页审批");
+    const zh = await request(handle.port, "GET", `/tasks/${created.task.id}`, { headers: { cookie, "accept-language": "zh-CN" } });
+    expect(zh.body).toContain("策略不允许网页审批");
     const before = withLedger(dir, (engine) => engine.exportReceipts().length);
     const response = await request(handle.port, "POST", `/tasks/${created.task.id}/approve`, {
       headers: { cookie, origin: handle.origin, "content-type": "application/x-www-form-urlencoded" },

@@ -851,7 +851,7 @@ rules:
     pendingDb.prepare("UPDATE meta SET value = '1' WHERE key = 'schema'").run();
     pendingDb.close();
     expect(() => openLedger({ dir: open.dir })).toThrowError(
-      expect.objectContaining({ code: "invalid_request", status: 400, message: "请用旧版本完成这些任务，或重新 init" }),
+      expect.objectContaining({ code: "invalid_request", status: 400, message: "ledger.db uses schema 1 and has 1 unfinished task(s). Finish them with the ActLedger version that created them, or run actledger init in a new directory." }),
     );
 
     const done = setup();

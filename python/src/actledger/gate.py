@@ -61,11 +61,28 @@ def default_tool_mapping(tool_name: str, input: Any) -> ToolMapping:
     return ToolMapping(action={"type": action_type}, payload={"action": action_type, "args": args})
 
 
-def approve_hint(task_id: str, dir: str | None) -> str:
+_ASSURANCE_RANK = {"app_asserted": 1, "channel_verified": 2, "user_signed": 3}
+
+
+def approve_command_line(task_id: str, dir: str | None, decision: dict | None = None) -> str:
+    line = f"actledger approve {task_id}"
+    if dir:
+        line += f" --dir {dir}"
+    requirements = decision if isinstance(decision, dict) else {}
+    minimum = requirements.get("minAssurance")
+    if isinstance(minimum, str) and _ASSURANCE_RANK.get(minimum, -1) > _ASSURANCE_RANK["app_asserted"]:
+        line += f" --assurance {minimum}"
+    if requirements.get("stepUp"):
+        line += " --step-up"
+    return line
+
+
+def approve_hint(task_id: str, dir: str | None, decision: dict | None = None) -> str:
     flag = f" --dir {dir}" if dir else ""
     return (
         f"Task {task_id} is waiting for approval. "
-        f"Approve: actledger approve {task_id}{flag}  Reject: actledger reject {task_id}{flag}"
+        f"Approve: {approve_command_line(task_id, dir, decision)}  "
+        f'Reject: actledger reject {task_id}{flag} --note "<reason>"'
     )
 
 
@@ -158,7 +175,10 @@ class ToolGate:
             return ToolGateAllow(run, run.task_id, run.approved_payload)
         if state == "pending_approval":
             directory = getattr(self._ledger, "dir", None)
-            return ToolGatePending(handle.id, approve_hint(handle.id, directory if isinstance(directory, str) else None))
+            return ToolGatePending(
+                handle.id,
+                approve_hint(handle.id, directory if isinstance(directory, str) else None, handle.decision),
+            )
         if state == "rejected":
             reason: ToolGateDenyReason = "policy_denied" if _decision_result(handle) == "deny" else "rejected"
             cause = ApprovalRejected(handle)

@@ -43,7 +43,7 @@ def test_verify_vectors_from_the_cli(vectors: Path) -> None:
     assert "secrets=" in ok.stdout
     legacy = _run("verify", str(vectors / "receipts-chain-0.1.jsonl"), "--keys", str(keys))
     assert legacy.returncode == 0
-    assert "WARN v01_plaintext: 含明文意图或错误信息" in legacy.stderr
+    assert "WARN v01_plaintext: 0.1 receipts contain plaintext intent, error message, note or reason" in legacy.stderr
     report = json.loads(_run("verify", str(chain), "--keys", str(keys), "--json").stdout)
     expected = verify_jsonl(chain.read_text(encoding="utf-8"), json.loads(keys.read_text(encoding="utf-8")))
     assert report == expected.to_dict()

@@ -14,6 +14,7 @@ from .gate import (
     ToolGateDeny,
     ToolGatePending,
     ToolMapping,
+    approve_command_line,
     approve_hint,
     default_tool_mapping,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "ToolGateDeny",
     "ToolGatePending",
     "ToolMapping",
+    "approve_command_line",
     "approve_hint",
     "commit",
     "default_tool_mapping",

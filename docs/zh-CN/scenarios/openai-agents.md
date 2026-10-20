@@ -79,7 +79,7 @@ actions:
     level: write
 ```
 
-`level` 设成 `send`、`spend` 或 `delete` 会把最低保证抬到 `channel_verified`（[evaluate.ts](../../../packages/core/src/policy/evaluate.ts)）。`examples/openai-agents/policy.yaml` 把 `tool.send_email` 声明为 `level: send`，所以那个示例需要 `channel_verified`。审批台上的 Approve 是禁用的。CLI 要加 `--assurance channel_verified`（回执标为 simulated），或者在审批台写理由拒绝。
+规则没写 `min_assurance` 时，`level` 设成 `send`、`spend` 或 `delete` 会把最低保证抬到 `channel_verified`（[evaluate.ts](../../../packages/core/src/policy/evaluate.ts)）。审批台只能记录 `app_asserted`，所以这类任务的 Approve 是禁用的。`examples/openai-agents/policy.yaml` 把 `tool.send_email` 声明为 `level: write`，任务只需要 `app_asserted`：在审批台批，或者用 `approveHint` 里的命令批。任务确实需要更高保证时，`approveHint` 末尾已经带上 `--assurance <level>`（需要 step-up 时还有 `--step-up`），CLI 会把这条回执标为 simulated。
 
 ## 下一步
 

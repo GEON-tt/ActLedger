@@ -64,7 +64,7 @@ describe("mcp proxy", () => {
     const pending = asCallResult(await client.callTool({ name: "send_email", arguments: args }));
     expect(Date.now() - started).toBeLessThan(2_000);
     expect(pending.isError).toBe(false);
-    expect(textOf(pending)).toMatch(/已提交审批 tsk_\w+，批准后用 check_task 查询/);
+    expect(textOf(pending)).toMatch(/^Submitted for approval as task tsk_\w+\. .*call check_task with task_id tsk_\w+\.$/);
     const id = String(pending._meta?.["actledger/task_id"]);
     expect(taskOf(dir, id)?.state).toBe("pending_approval");
     expect(readLog(logFile)).toHaveLength(0);
@@ -116,7 +116,7 @@ describe("mcp proxy", () => {
     reject(dir, id);
     const result = asCallResult(await client.callTool({ name: "check_task", arguments: { task_id: id } }));
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("审批被拒绝");
+    expect(textOf(result)).toContain("Approval was rejected");
     expect(readLog(logFile)).toHaveLength(0);
   });
 
@@ -124,7 +124,7 @@ describe("mcp proxy", () => {
     const { client, dir, logFile } = await boot();
     const result = asCallResult(await client.callTool({ name: "delete_all", arguments: {} }));
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("策略禁止");
+    expect(textOf(result)).toContain("Policy denies this action");
     const id = String(result._meta?.["actledger/task_id"]);
     expect(taskOf(dir, id)?.state).toBe("rejected");
     expect(readLog(logFile)).toHaveLength(0);
@@ -158,7 +158,7 @@ describe("mcp proxy", () => {
     const result = asCallResult(await client.callTool({ name: "slow", arguments: { ms: 3000 } }));
     expect(Date.now() - started).toBeLessThan(2_500);
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("结果未知");
+    expect(textOf(result)).toContain("outcome is unknown");
     const id = String(result._meta?.["actledger/task_id"]);
     await sleep(1_200);
     expect(taskOf(dir, id)?.state).toBe("unknown");
@@ -170,12 +170,12 @@ describe("mcp proxy", () => {
     const { client, dir } = await boot(["--exit-on-call"]);
     const first = asCallResult(await client.callTool({ name: "echo", arguments: { text: "hi" } }));
     expect(first.isError).toBe(true);
-    expect(textOf(first)).toContain("上游连接中断");
+    expect(textOf(first)).toContain("upstream connection dropped");
     const before = listTaskIds(dir);
     expect(before).toHaveLength(1);
     const second = asCallResult(await client.callTool({ name: "echo", arguments: { text: "again" } }));
     expect(second.isError).toBe(true);
-    expect(textOf(second)).toBe("上游 MCP 服务器不可用，未提交动作。");
+    expect(textOf(second)).toBe("The upstream MCP server is unavailable. No action was submitted.");
     expect(listTaskIds(dir)).toEqual(before);
   });
 
@@ -241,7 +241,7 @@ describe("mcp proxy", () => {
     ledger.close();
     const result = asCallResult(await client.callTool({ name: "check_task", arguments: { task_id: foreign.id } }));
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("不属于此代理");
+    expect(textOf(result)).toContain("does not belong to this proxy");
     expect(readLog(logFile)).toHaveLength(0);
   });
 
@@ -249,7 +249,7 @@ describe("mcp proxy", () => {
     const { client, dir, logFile } = await boot();
     const result = asCallResult(await client.callTool({ name: "schema_miss", arguments: {} }));
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("结果未知");
+    expect(textOf(result)).toContain("outcome is unknown");
     const id = String(result._meta?.["actledger/task_id"]);
     const task = taskOf(dir, id);
     expect(task?.state).not.toBe("failed");
@@ -270,7 +270,7 @@ describe("mcp proxy", () => {
     ledger.close();
     const result = asCallResult(await client.callTool({ name: "check_task", arguments: { task_id: foreign.id } }));
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("未执行");
+    expect(textOf(result)).toContain("It was not executed.");
     expect(readLog(logFile)).toHaveLength(0);
     expect(taskOf(dir, foreign.id)?.state).toBe("approved");
   });

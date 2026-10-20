@@ -16,7 +16,7 @@ Python，先 `pip install -e "./python[test,openai-agents]"`：
 python/.venv/bin/python -m pytest python/tests/test_openai_agents.py -q
 ```
 
-在仓库根目录运行。脚本打印批准提示后，在另一个终端用 `actledger approve` 或 `actledger serve` 批准。等待超过 5 分钟会打印 `still pending, giving up` 并以 0 退出。任务留在 `pending_approval`。
+在仓库根目录运行。脚本打印批准提示后，在另一个终端用 `actledger approve` 或 `actledger serve` 批准。`policy.yaml` 把 `send_email` 声明为 `level: write`，两种方式在默认的 `app_asserted` 保证下都能批。等待超过 5 分钟会打印 `still pending, giving up` 并以 0 退出。任务留在 `pending_approval`。
 
 ```bash
 OPENAI_API_KEY=… pnpm exec tsx examples/openai-agents/run.ts

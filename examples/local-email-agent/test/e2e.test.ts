@@ -70,6 +70,6 @@ describe("local email agent", () => {
 
     const show = run(["show", JSON.parse(exported.stdout.trim().split("\n").at(-1)!).id, "--dir", dir]);
     expect(show.status, show.stderr).toBe(0);
-    expect(show.stdout).toContain("签名: 有效");
+    expect(show.stdout).toContain("signature: valid");
   });
 });

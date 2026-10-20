@@ -13,7 +13,7 @@ coverage:
     via: openai-agents
 actions:
   tool.send_email:
-    level: send
+    level: write
 rules:
   - id: send-approve
     match:

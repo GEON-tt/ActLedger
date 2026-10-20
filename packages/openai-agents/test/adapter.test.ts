@@ -295,6 +295,7 @@ describe("@actledger/openai-agents", () => {
       const resolved = await resolveInterruptions(result, binding);
       expect(resolved.pending).toHaveLength(1);
       expect(resolved.pending[0]?.approveHint).toContain("actledger approve");
+      expect(resolved.pending[0]?.approveHint).toContain("--assurance channel_verified");
       expect(resolved.approved).toHaveLength(0);
       expect(resolved.rejected).toHaveLength(0);
       expect(result.state.getInterruptions()).toHaveLength(1);

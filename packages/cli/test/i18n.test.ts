@@ -102,7 +102,7 @@ describe("t", () => {
     expect(t("en", "tl.reasonRecorded")).toBe(" · reason recorded");
     expect(t("en", "tl.reason", { reason: "because" })).toBe("reason because");
     expect(t("en", "tl.error", { code: "boom" })).toBe("error boom");
-    expect(t("en", "hint.channel")).toContain("策略不允许网页审批");
+    expect(t("en", "hint.channel")).toBe("This policy does not allow approving on this page. Use `actledger approve`.");
     expect(t("zh-CN", "hint.channel")).toContain("策略不允许网页审批");
     expect(t("en", "hint.stepUp", { stepUp: "pin", id: "tsk_1" })).toBe(
       "Approve is disabled: this action needs step-up pin, which this page cannot collect. Use the CLI (actledger approve tsk_1 --step-up).",

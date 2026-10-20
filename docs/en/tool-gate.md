@@ -28,7 +28,7 @@ ToolGate is the generic hook for an agent framework that has no ActLedger adapte
 
 `deny.cause` is the exception `ledger.guard` throws for that same case. `deny.message` is `cause.message`. `deny.state` is the ledger state (`pending_approval` for `timeout`).
 
-`pending` is only returned in defer mode, and by `resume` while the task is still waiting. `approveHint` contains the task id and `actledger approve <id>`. When `Ledger.dir` is set, the hint also has `--dir`. A custom transport has `dir` null, so the hint omits `--dir`. A directory path with spaces is not quoted. Quote it yourself. The command matches the LangGraph hint.
+`pending` is only returned in defer mode, and by `resume` while the task is still waiting. `approveHint` contains the task id and `actledger approve <id>`. When `Ledger.dir` is set, the hint also has `--dir`. When the task's `decision.minAssurance` is above `app_asserted`, the approve command ends with `--assurance <minAssurance>`, and when `decision.stepUp` is set it also has `--step-up`; the CLI marks both simulated. The reject command includes `--note "<reason>"`, which `actledger reject` requires. `approveCommandLine(taskId, dir, decision)` returns just the approve command. A custom transport has `dir` null, so the hint omits `--dir`. A directory path with spaces is not quoted. Quote it yourself. The command matches the LangGraph hint.
 
 ## wait and defer
 

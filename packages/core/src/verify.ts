@@ -151,7 +151,7 @@ function collectWarnings(receipts: Receipt[]): VerifyWarning[] {
     if (receipt.v === RECEIPT_V01 && hasV01Plaintext(receipt)) count += 1;
   }
   if (count === 0) return [];
-  return [{ code: "v01_plaintext", message: "含明文意图或错误信息", count }];
+  return [{ code: "v01_plaintext", message: "0.1 receipts contain plaintext intent, error message, note or reason", count }];
 }
 
 function checkVersions(receipts: Receipt[]): VerifyFailure | null {

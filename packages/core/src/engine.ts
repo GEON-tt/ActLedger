@@ -1451,7 +1451,7 @@ export function openLedger(opts: EngineOptions): LedgerEngine {
   const unfinished = store.legacyOpenTasks(app.id);
   if (unfinished > 0) {
     store.close();
-    throw new LedgerError("invalid_request", "请用旧版本完成这些任务，或重新 init", 400);
+    throw new LedgerError("invalid_request", `ledger.db uses schema 1 and has ${unfinished} unfinished task(s). Finish them with the ActLedger version that created them, or run actledger init in a new directory.`, 400);
   }
   store.promoteSchema();
   store.ensureChainHead(app.id);

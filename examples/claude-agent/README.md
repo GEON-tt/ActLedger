@@ -16,7 +16,7 @@ Python, after `pip install -e "./python[test,claude]"`:
 python/.venv/bin/python -m pytest python/tests/test_claude_agent.py -q
 ```
 
-Run from the repository root. In another terminal, approve with the command the script prints.
+Run from the repository root. In another terminal, approve with the command the script prints, or on the approval console (`pnpm actledger serve --dir <ledger dir>`). `policy.yaml` declares `send_note` as `level: write`, so both work at the default `app_asserted` assurance.
 
 ```bash
 ANTHROPIC_API_KEY=… pnpm exec tsx examples/claude-agent/run.ts

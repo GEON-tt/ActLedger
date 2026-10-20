@@ -96,7 +96,7 @@ For a 0.2 task, the salt is the base64url `payload_salt`. An older entry without
 
 ## 4. Warnings
 
-`v01_plaintext`: a 0.1 receipt whose `initiator` contains `intent`, or whose `error` contains `message`, or whose body contains `note`, or whose `reason` is not an enum for that target state. The message is `含明文意图或错误信息`. `count` is the number of such receipts.
+`v01_plaintext`: a 0.1 receipt whose `initiator` contains `intent`, or whose `error` contains `message`, or whose body contains `note`, or whose `reason` is not an enum for that target state. The message is `0.1 receipts contain plaintext intent, error message, note or reason`. `count` is the number of such receipts.
 
 A warning MUST NOT turn `ok` into `false`.
 

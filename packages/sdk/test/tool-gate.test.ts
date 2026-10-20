@@ -8,6 +8,8 @@ import {
   ApprovalRejected,
   ContentMismatch,
   Ledger,
+  approveCommandLine,
+  approveHint,
   createToolGate,
   defaultToolMapping,
   type ToolGateDecision,
@@ -276,6 +278,7 @@ describe("createToolGate", () => {
       expect(pending.approveHint).toContain(`actledger approve ${pending.taskId}`);
       expect(pending.approveHint).toContain("--dir");
       expect(pending.approveHint).toContain(ledger.dir ?? "");
+      expect(pending.approveHint).toContain(`actledger approve ${pending.taskId} --dir ${ledger.dir} --assurance channel_verified`);
       expect((await gate.resume(pending.taskId)).kind).toBe("pending");
       const stored = await ledger.getTask(pending.taskId);
       if (!stored) throw new Error("missing task");
@@ -477,5 +480,26 @@ describe("createToolGate", () => {
     } finally {
       ledger.close();
     }
+  });
+});
+
+describe("approveHint", () => {
+  it("builds the approve and reject commands", () => {
+    expect(approveHint("tsk_1", "/d")).toBe(
+      'Task tsk_1 is waiting for approval. Approve: actledger approve tsk_1 --dir /d  Reject: actledger reject tsk_1 --dir /d --note "<reason>"',
+    );
+    expect(approveHint("tsk_1", "/d", { minAssurance: "app_asserted", stepUp: null })).toBe(
+      'Task tsk_1 is waiting for approval. Approve: actledger approve tsk_1 --dir /d  Reject: actledger reject tsk_1 --dir /d --note "<reason>"',
+    );
+    expect(approveHint("tsk_1", "/d", { minAssurance: "channel_verified", stepUp: null })).toBe(
+      'Task tsk_1 is waiting for approval. Approve: actledger approve tsk_1 --dir /d --assurance channel_verified  Reject: actledger reject tsk_1 --dir /d --note "<reason>"',
+    );
+    expect(approveCommandLine("tsk_1", null, { minAssurance: "user_signed", stepUp: "webauthn" })).toBe(
+      "actledger approve tsk_1 --assurance user_signed --step-up",
+    );
+    expect(approveCommandLine("tsk_1", null, { minAssurance: null, stepUp: "pin" })).toBe(
+      "actledger approve tsk_1 --step-up",
+    );
+    expect(approveCommandLine("tsk_1", null)).toBe("actledger approve tsk_1");
   });
 });

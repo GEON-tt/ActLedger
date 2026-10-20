@@ -26,6 +26,7 @@ export {
   createToolGate,
   defaultToolMapping,
   approveHint,
+  approveCommandLine,
   type ToolGate,
   type ToolGateOptions,
   type ToolGateMode,
@@ -36,4 +37,5 @@ export {
   type ToolGatePending,
   type ToolGateDenyReason,
   type ToolGateOutcome,
+  type ApproveRequirements,
 } from "./gate.js";

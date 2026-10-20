@@ -16,7 +16,7 @@ Python, after `pip install -e "./python[test,openai-agents]"`:
 python/.venv/bin/python -m pytest python/tests/test_openai_agents.py -q
 ```
 
-Run from the repository root. When the script prints an approve hint, approve in another terminal with `actledger approve` or `actledger serve`. The wait gives up after 5 minutes, prints `still pending, giving up`, and exits 0. The task stays `pending_approval`.
+Run from the repository root. When the script prints an approve hint, approve in another terminal with `actledger approve` or `actledger serve`. `policy.yaml` declares `send_email` as `level: write`, so both work at the default `app_asserted` assurance. The wait gives up after 5 minutes, prints `still pending, giving up`, and exits 0. The task stays `pending_approval`.
 
 ```bash
 OPENAI_API_KEY=… pnpm exec tsx examples/openai-agents/run.ts

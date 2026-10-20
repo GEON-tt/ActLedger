@@ -210,7 +210,7 @@ def _collect_warnings(receipts: list) -> list[dict]:
             count += 1
     if count == 0:
         return []
-    return [{"code": "v01_plaintext", "message": "含明文意图或错误信息", "count": count}]
+    return [{"code": "v01_plaintext", "message": "0.1 receipts contain plaintext intent, error message, note or reason", "count": count}]
 
 
 def _check_versions(receipts: list[dict]) -> dict | None:

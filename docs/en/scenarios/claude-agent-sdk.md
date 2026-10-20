@@ -74,7 +74,7 @@ actions:
     level: write
 ```
 
-A `level` of `send`, `spend`, or `delete` raises the minimum assurance to `channel_verified` ([evaluate.ts](../../../packages/core/src/policy/evaluate.ts)). `examples/claude-agent/policy.yaml` declares `tool.mcp__ledger__send_note` as `level: send`, so that example's tasks need `channel_verified`. Approve on the approval console is disabled, and the `actledger approve <id> --dir …` command the script prints returns `assurance_insufficient`. To approve, add `--assurance channel_verified` (the receipt is marked simulated), or reject it in the console with a reason.
+A `level` of `send`, `spend`, or `delete` raises the minimum assurance to `channel_verified` when the rule sets no `min_assurance` ([evaluate.ts](../../../packages/core/src/policy/evaluate.ts)). The approval console can only record `app_asserted`, so it disables Approve for such tasks. `examples/claude-agent/policy.yaml` declares `tool.mcp__ledger__send_note` as `level: write`, so its tasks need `app_asserted`: approve them on the console or with the `actledger approve <id> --dir …` command the script prints. When a task does need more, the approve hint already ends with `--assurance <level>` (and `--step-up` when a step-up is required); the CLI marks that receipt simulated.
 
 ## Next
 

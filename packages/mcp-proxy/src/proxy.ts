@@ -178,26 +178,26 @@ export async function createProxy(opts: ProxyOptions): Promise<{
         if (handle.data.error?.code === "upstream_rpc_error") {
           return messages.upstreamRpcError(id, "upstream call failed");
         }
-        return messages.textResult(`上游工具返回错误，任务 ${id} 记为 failed。`, true, { id, state: "failed" });
+        return messages.textResult(`The upstream tool returned an error. Task ${id} is recorded as failed.`, true, { id, state: "failed" });
       }
       if (handle.state === "executed") {
         return sessions.get(id)?.result ?? messages.alreadyExecuted(id, handle.state);
       }
       if (handle.state === "executing") return messages.alreadyClaimed(id, cfg.checkTaskTool, handle.state);
-      return messages.textResult(`任务 ${id} 状态为 ${handle.state}，未执行。`, true, { id, state: handle.state });
+      return messages.textResult(`Task ${id} is ${handle.state}. It was not executed.`, true, { id, state: handle.state });
     };
 
     const handleCheckTask = async (taskId: string): Promise<CallToolResult> => {
-      if (!taskId.startsWith("tsk_")) return messages.textResult("task_id 必须以 tsk_ 开头", true);
+      if (!taskId.startsWith("tsk_")) return messages.textResult("task_id must start with tsk_", true);
       ledger.sweep();
       const handle = await ledger.getTask(taskId);
-      if (!handle) return messages.textResult(`未知任务 ${taskId}`, true);
+      if (!handle) return messages.textResult(`Unknown task ${taskId}.`, true);
       if (handle.data.action.attrs.mcp_server !== cfg.name) return messages.wrongProxy();
       if (handle.state === "pending_approval") return messages.stillPending(handle.id, cfg.checkTaskTool);
       if (handle.state === "approved") {
         const toolName = handle.data.action.attrs.mcp_tool;
         if (typeof toolName !== "string" || !toolName) {
-          return messages.textResult(`任务 ${handle.id} 缺少工具名，未执行。`, true, {
+          return messages.textResult(`Task ${handle.id} has no tool name. It was not executed.`, true, {
             id: handle.id,
             state: handle.state,
           });
@@ -219,7 +219,7 @@ export async function createProxy(opts: ProxyOptions): Promise<{
           ...exposed(),
           {
             name: cfg.checkTaskTool,
-            description: "查询 ActLedger 审批任务；已批准时执行原动作并返回结果。",
+            description: "Check an ActLedger approval task by task_id. If the task is approved, this runs the original action and returns its result; otherwise it returns the task's status.",
             inputSchema: {
               type: "object" as const,
               properties: { task_id: { type: "string", pattern: "^tsk_" } },
@@ -237,7 +237,7 @@ export async function createProxy(opts: ProxyOptions): Promise<{
         const args = (request.params.arguments ?? {}) as Record<string, unknown>;
         if (name === cfg.checkTaskTool) {
           const taskId = args.task_id;
-          if (typeof taskId !== "string") return messages.textResult("task_id 必须以 tsk_ 开头", true);
+          if (typeof taskId !== "string") return messages.textResult("task_id must start with tsk_", true);
           return handleCheckTask(taskId);
         }
         if (!visible(name)) {

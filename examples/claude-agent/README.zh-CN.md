@@ -16,7 +16,7 @@ Python，先 `pip install -e "./python[test,claude]"`：
 python/.venv/bin/python -m pytest python/tests/test_claude_agent.py -q
 ```
 
-在仓库根目录运行。另一个终端按脚本打印的命令批准。
+在仓库根目录运行。另一个终端按脚本打印的命令批准，或者在审批台（`pnpm actledger serve --dir <账本目录>`）批准。`policy.yaml` 把 `send_note` 声明为 `level: write`，两种方式在默认的 `app_asserted` 保证下都能批。
 
 ```bash
 ANTHROPIC_API_KEY=… pnpm exec tsx examples/claude-agent/run.ts

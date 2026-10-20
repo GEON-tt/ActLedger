@@ -110,7 +110,7 @@ describe("cli", () => {
     const receipts = path.join(dir, "receipts.jsonl");
     const exported = run(["export", "--dir", dir, "--secrets", secrets]);
     expect(exported.status, exported.stderr).toBe(0);
-    expect(exported.stderr).toContain("secrets 文件含解密原文");
+    expect(exported.stderr).toContain("contains decrypted plaintext");
     expect(fs.statSync(secrets).mode & 0o777).toBe(0o600);
     fs.writeFileSync(receipts, exported.stdout);
     const again = run(["export", "--dir", dir, "--secrets", secrets]);

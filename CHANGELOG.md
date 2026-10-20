@@ -53,3 +53,9 @@ Not published to npm or PyPI.
 - **Python SDK**
 
   The `actledger` Python package verifies the same test vectors as TypeScript, opens a local ledger through `actledger rpc`, and includes an optional LangGraph adapter.
+
+### Changed
+
+- **Example approvals, accurate approve hints, English package text**
+
+  `examples/claude-agent` and `examples/openai-agents` declare their gated tools as `level: write`, so the approval console and the printed `actledger approve` command both work at the default `app_asserted` assurance; a test runs each printed command and checks the task is approved. `approveHint` in TypeScript and Python (and the LangGraph interrupt hint) now add `--assurance <min>` when the task needs more than `app_asserted`, `--step-up` when it needs a step-up, and `--note "<reason>"` to the reject command; `approveCommandLine` / `approve_command_line` return the approve command alone. MCP proxy tool results and the `check_task` description, `actledger show` and `export --secrets` output, the schema-1 open error, the `v01_plaintext` warning (now `0.1 receipts contain plaintext intent, error message, note or reason` in both TypeScript and Python; the code is unchanged), and JSDoc in published packages are in English. The console's English strings no longer embed Chinese; that text stays in the zh-CN dictionary. `CODE_OF_CONDUCT.md` names the maintainer email as the enforcement contact.
