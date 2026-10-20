@@ -80,7 +80,7 @@ By making a contribution to this project, I certify that:
 
 ## 变更集
 
-影响发布包（`@actledger/core`、`@actledger/sdk`、`@actledger/cli`、`@actledger/mcp-proxy`）的 PR 要带 `pnpm changeset`。只改文档或示例可以不带。写法见 [`.changeset/README.md`](.changeset/README.md)。
+影响发布包（`@actledger/core`、`@actledger/sdk`、`@actledger/cli`、`@actledger/mcp-proxy`、`@actledger/claude-agent-sdk`、`@actledger/openai-agents`、`@actledger/server`）的 PR 要带 `pnpm changeset`。只改文档或示例可以不带。写法见 [`.changeset/README.md`](.changeset/README.md)。
 
 ## 规范变更
 

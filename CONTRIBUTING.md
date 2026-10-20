@@ -80,7 +80,7 @@ By making a contribution to this project, I certify that:
 
 ## Changesets
 
-A pull request that changes a published package (`@actledger/core`, `@actledger/sdk`, `@actledger/cli`, `@actledger/mcp-proxy`) needs `pnpm changeset`. Documentation-only or example-only changes can omit it. See [`.changeset/README.md`](.changeset/README.md).
+A pull request that changes a published package (`@actledger/core`, `@actledger/sdk`, `@actledger/cli`, `@actledger/mcp-proxy`, `@actledger/claude-agent-sdk`, `@actledger/openai-agents`, `@actledger/server`) needs `pnpm changeset`. Documentation-only or example-only changes can omit it. See [`.changeset/README.md`](.changeset/README.md).
 
 ## Specification changes
 

@@ -1,6 +1,6 @@
 # Changesets
 
-四个发布包 `@actledger/core`、`@actledger/sdk`、`@actledger/cli`、`@actledger/mcp-proxy` 在 `.changeset/config.json` 的 `fixed` 组里，版本始终一起变化。`examples/*` 是 private 包，不参与版本计算。
+七个发布包 `@actledger/core`、`@actledger/sdk`、`@actledger/cli`、`@actledger/mcp-proxy`、`@actledger/claude-agent-sdk`、`@actledger/openai-agents`、`@actledger/server` 在 `.changeset/config.json` 的 `fixed` 组里，版本始终一起变化。`examples/*` 是 private 包，不参与版本计算。
 
 ## 怎么写一个 changeset
 
