@@ -9,7 +9,7 @@
     "@actledger/openai-agents": "workspace:*",
     "@actledger/sdk": "workspace:*",
     "@anthropic-ai/claude-agent-sdk": "0.3.299",
-    "@cursor/sdk": "^1.0.37",
+    "@cursor/sdk": "^1.0.38",
     "@openai/agents": "0.20.0",
     "zod": "^4.0.0"
   }
